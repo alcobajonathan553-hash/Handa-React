@@ -29,7 +29,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser); //declared user
+        setUser(currentUser);
 
         // Reference to user's profile document in Firestore
         const userRef = doc(db, 'users', currentUser.uid);
@@ -79,29 +79,31 @@ export default function App() {
     }
   };
 
-``
   if (loading) return <h2>Loading Application State...</h2>;
 
-
   return (
-    <div>
-          {!user ? (
-            <Login onLogin={handleLogin} />
-          ) : (
-            <div>
-              <Header onLogout={handleLogout} user={user} role={role} />
-    
-              <div style={{ padding: '20px' }}>
-                <p>Welcome, <strong>{user.displayName}</strong> | Role: <strong>{role}</strong></p>
-    
-                
-              </div>
-    
-              <Footer />
+    <BrowserRouter>
+      <div>
+        {!user ? (
+          <Login onLogin={handleLogin} />
+        ) : (
+          <div>
+            <Header onLogout={handleLogout} user={user} role={role} />
+            
+            <div style={{ padding: '20px' }}>
+              <p>Welcome, <strong>{user.displayName}</strong> | Role: <strong>{role}</strong></p>
+              
+              <Routes>
+                <Route path="/" element={<Content />} />
+                <Route path="/display" element={<Display />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
             </div>
-          )}
-        </div>
-      
-    
+            
+            <Footer />
+          </div>
+        )}
+      </div>
+    </BrowserRouter>
   );
 }
