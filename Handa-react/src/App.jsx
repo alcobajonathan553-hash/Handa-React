@@ -1,108 +1,312 @@
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header.jsx';
-import Footer from './components/Footer.jsx';
-import Content from './components/Content.jsx';
-import Login from './Login';
-import Display from './Display.jsx';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
 
-import { auth, googleProvider, db } from './firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  orderBy, 
-  onSnapshot, 
+import LoginPage from './components/LoginPage.jsx';
+import { auth, googleProvider, db } from './components/firebase.js';
+
+import Display from './pages/Display.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import LandingPage from './pages/LandingPage.jsx';
+
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate
+} from 'react-router-dom';
+
+import {
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+
+import {
   serverTimestamp,
   doc,
   getDoc,
-  setDoc 
+  setDoc,
+  updateDoc
 } from 'firebase/firestore';
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // Stores 'admin', 'editor', 'student', etc.
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. Authentication, User Synchronization, & Role Retrieval
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined'
+      ? navigator.onLine
+      : true
+  );
+
+  // Internet connection status
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
-        // Reference to user's profile document in Firestore
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userSnap = await getDoc(userRef);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
-        if (userSnap.exists()) {
-          // Fetch existing role
-          setRole(userSnap.data().role || 'student');
-        } else {
-          // New user: Save profile to Firestore with a default role
-          const defaultRole = 'student'; 
-          await setDoc(userRef, {
-            displayName: currentUser.displayName,
-            email: currentUser.email,
-            photoURL: currentUser.photoURL,
-            role: defaultRole,
-            createdAt: serverTimestamp()
-          });
-          setRole(defaultRole);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Firebase authentication + Firestore role
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (currentUser) => {
+        try {
+          if (!currentUser) {
+            setUser(null);
+            setRole(null);
+            setLoading(false);
+            return;
+          }
+
+          const userRef = doc(
+            db,
+            'users',
+            currentUser.uid
+          );
+
+          const userSnap = await getDoc(userRef);
+
+          let profileData;
+
+          if (userSnap.exists()) {
+            profileData = userSnap.data();
+
+            // ONLY resident and admin are valid roles.
+            // If the existing role is invalid/missing,
+            // default to resident.
+            const firestoreRole =
+              profileData.role === 'admin' ||
+              profileData.role === 'resident'
+                ? profileData.role
+                : 'resident';
+
+            if (profileData.role !== firestoreRole) {
+              await updateDoc(userRef, {
+                role: firestoreRole
+              });
+
+              profileData = {
+                ...profileData,
+                role: firestoreRole
+              };
+            }
+          } else {
+            // New account = resident by default
+            profileData = {
+              name:
+                currentUser.displayName ||
+                currentUser.email?.split('@')[0] ||
+                'Resident',
+              email: currentUser.email || '',
+              photoURL: currentUser.photoURL || '',
+              barangay: 'B. Del Mundo',
+              role: 'resident',
+              createdAt: serverTimestamp()
+            };
+
+            await setDoc(userRef, profileData);
+          }
+
+          const currentRole =
+            profileData.role === 'admin'
+              ? 'admin'
+              : 'resident';
+
+          // Combine Firebase Auth data + Firestore profile
+          const appUser = {
+            uid: currentUser.uid,
+            email:
+              profileData.email ||
+              currentUser.email ||
+              '',
+            name:
+              profileData.name ||
+              profileData.displayName ||
+              currentUser.displayName ||
+              currentUser.email?.split('@')[0] ||
+              'User',
+            displayName:
+              profileData.displayName ||
+              currentUser.displayName ||
+              profileData.name ||
+              '',
+            photoURL:
+              profileData.photoURL ||
+              currentUser.photoURL ||
+              '',
+            barangay:
+              profileData.barangay ||
+              'B. Del Mundo',
+            role: currentRole
+          };
+
+          setUser(appUser);
+          setRole(currentRole);
+        } catch (error) {
+          console.error(
+            'Error loading authentication/profile:',
+            error
+          );
+
+          setUser(null);
+          setRole(null);
+        } finally {
+          setLoading(false);
         }
-      } else {
-        setUser(null);
-        setRole(null);
       }
-      setLoading(false);
-    });
+    );
 
     return () => unsubscribe();
   }, []);
 
-  // Google Login Handler
+  // Google login
   const handleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithPopup(
+        auth,
+        googleProvider
+      );
+
+      /*
+        IMPORTANT:
+        Do NOT create/update the Firestore role here.
+
+        App.jsx will read the existing role from:
+        users/{uid}
+
+        Therefore:
+        resident stays resident
+        admin stays admin
+      */
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error(
+        'Google login failed:',
+        error
+      );
     }
   };
 
-  // Logout Handler
+  // Logout
   const handleLogout = async () => {
     try {
       await signOut(auth);
+
+      setUser(null);
       setRole(null);
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error(
+        'Logout failed:',
+        error
+      );
     }
   };
 
-  if (loading) return <h2>Loading Application State...</h2>;
+  if (loading) {
+    return (
+      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+        <div className="text-center">
+          <div
+            className="spinner-border text-success mb-3"
+            role="status"
+          >
+            <span className="visually-hidden">
+              Loading...
+            </span>
+          </div>
+
+          <h5 className="fw-bold">
+            Loading Application...
+          </h5>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>
-      <div>
+      <div className="min-vh-100">
+
         {!user ? (
-          <Login onLogin={handleLogin} />
+          <LoginPage
+            onLogin={handleLogin}
+            isOnline={isOnline}
+          />
         ) : (
-          <div>
-            <Header onLogout={handleLogout} user={user} role={role} />
-            
-            <div style={{ padding: '20px' }}>
-              <p>Welcome, <strong>{user.displayName}</strong> | Role: <strong>{role}</strong></p>
-              
-              <Routes>
-                <Route path="/" element={<Content />} />
-                <Route path="/display" element={<Display />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </div>
-            
-            <Footer />
-          </div>
+          <Routes>
+
+            {/* LANDING PAGE */}
+            <Route
+              path="/"
+              element={
+                <LandingPage
+                  user={user}
+                  role={role}
+                  onLogin={handleLogin}
+                  onLogout={handleLogout}
+                  isOnline={isOnline}
+                />
+              }
+            />
+
+            {/* RESIDENT DASHBOARD */}
+            <Route
+              path="/dashboard"
+              element={
+                role === 'resident' ? (
+                  <Dashboard
+                    user={user}
+                    onLogout={handleLogout}
+                    isOnline={isOnline}
+                  />
+                ) : (
+                  <Navigate
+                    to="/"
+                    replace
+                  />
+                )
+              }
+            />
+
+            {/* ADMIN DASHBOARD */}
+            <Route
+              path="/display"
+              element={
+                role === 'admin' ? (
+                  <Display
+                    user={user}
+                    role={role}
+                  />
+                ) : (
+                  <Navigate
+                    to="/"
+                    replace
+                  />
+                )
+              }
+            />
+
+            {/* UNKNOWN ROUTE */}
+            <Route
+              path="*"
+              element={
+                <Navigate
+                  to="/"
+                  replace
+                />
+              }
+            />
+
+          </Routes>
         )}
+
       </div>
     </BrowserRouter>
   );

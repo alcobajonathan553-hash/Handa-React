@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 export default function DisasterDetail({ item, onBack, darkMode }) {
   if (!item) return null;
