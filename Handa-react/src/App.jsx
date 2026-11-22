@@ -7,7 +7,7 @@ import LandingPage from './pages/LandingPage.jsx';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8080' : '')).replace(/\/$/, '');
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -43,6 +43,10 @@ export default function App() {
       setProfileError('');
 
       try {
+        if (!API_BASE_URL) {
+          throw new Error('Production API URL is not configured. Set VITE_API_URL in your Netlify environment variables to the public URL of the Handa backend, then redeploy the frontend.');
+        }
+
         const token = await currentUser.getIdToken();
         const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
           method: 'POST',
