@@ -7,7 +7,7 @@
 3. Select Import and import database/handa_db.sql.
 4. The script creates handa_db, all application tables, and starter barangay inventory.
 
-## 2. Configure the backend
+## 2. Configure the backend for local testing
 
 1. Copy backend/.env.example to backend/.env.
 2. Set DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, and DB_NAME.
@@ -18,17 +18,23 @@
     npm install
     npm run dev
 
-The backend starts only after it connects to MySQL.
+The backend starts only after it connects to MySQL. Open http://localhost:8080/api/health. A successful response includes "database":"connected".
 
-## 3. Configure React
+## 3. Configure React for local testing
 
 Create Handa-react/.env (do not commit it):
 
     VITE_API_URL=http://localhost:8080
 
-Restart Vite after changing environment variables.
+Restart Vite after changing environment variables. When testing locally, open the React app served by Vite (usually http://localhost:5173), not the Netlify website.
 
-## 4. Promote the first administrator
+## 4. Important: local XAMPP versus the deployed website
+
+A website hosted on Netlify cannot use http://localhost:8080 to reach a backend running on the visitor's computer. For the live Netlify website, deploy the backend to a public service such as Render, set VITE_API_URL to that public backend URL in the frontend hosting environment, and use a hosted MySQL database that the backend can reach. Set CORS_ORIGIN to the exact Netlify website origin. XAMPP running only on your PC is suitable for local development, not as the live website's database.
+
+Known frontend origin: https://handa-awareness.netlify.app
+
+## 5. Promote the first administrator
 
 1. Sign in once using the Firebase account that should be the administrator.
 2. Copy that account's UID from Firebase Authentication.
@@ -38,10 +44,6 @@ Restart Vite after changing environment variables.
     UPDATE users SET role = 'admin' WHERE firebase_uid = 'PASTE_FIREBASE_UID_HERE';
 
 New accounts are always residents. Never allow users to choose admin during public registration.
-
-## 5. Hosting
-
-Render cannot connect to XAMPP running only on your PC. Use a hosted MySQL provider and configure its connection values plus Firebase credentials in Render Environment settings. Set CORS_ORIGIN to the deployed frontend origin and VITE_API_URL in the frontend build environment to the deployed backend URL. Use persistent managed MySQL, not a temporary container filesystem.
 
 ## API endpoints
 
@@ -55,7 +57,5 @@ Render cannot connect to XAMPP running only on your PC. Use a hosted MySQL provi
 - GET /api/notifications and PATCH /api/notifications/:id/read: the signed-in resident's notifications.
 - GET, POST /api/activity-logs: the signed-in resident's activity history.
 - GET, POST, PUT, DELETE /api/supplies: administrator-only barangay inventory.
-
-The React dashboard now loads and saves checklist, personal emergency supplies, evacuation plan, and emergency contacts through the authenticated API. Notification and activity-log endpoints are available for the next UI integration step.
 
 All endpoints except health require Authorization: Bearer <Firebase ID token>. The backend verifies the token and uses its UID; admin permission is read from MySQL users.role.
