@@ -120,6 +120,14 @@ export default function Display() {
         .supply-table thead th { padding: 14px 10px; background: #f0f7f2; color: #355342; border-bottom: 1px solid #dfeae2; font-size: .78rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; padding: 15px 17px; white-space: normal; }
         .supply-table tbody td { padding: 16px 10px; vertical-align: middle; color: #405448; font-size: .88rem; border-color: #edf2ee; }
         .supply-table tbody tr:hover { background: #f8fbf9; }
+        .supply-table th:nth-child(1), .supply-table td:nth-child(1) { width: 8%; }
+        .supply-table th:nth-child(2), .supply-table td:nth-child(2) { width: 23%; }
+        .supply-table th:nth-child(3), .supply-table td:nth-child(3) { width: 21%; }
+        .supply-table th:nth-child(4), .supply-table td:nth-child(4) { width: 12%; }
+        .supply-table th:nth-child(5), .supply-table td:nth-child(5) { width: 16%; }
+        .supply-table th:nth-child(6), .supply-table td:nth-child(6) { width: 20%; }
+        .supply-card .table-responsive { width: 100%; overflow-x: auto; }
+        .supply-table .supply-action { padding: 7px 10px; }
         .supply-id { display: inline-flex; min-width: 32px; height: 30px; align-items: center; justify-content: center; border-radius: 8px; background: #f0f4f1; color: #52665a; font-weight: 700; font-size: .8rem; }
         .supply-name-icon { width: 36px; height: 36px; border-radius: 10px; background: #eaf6ee; color: #16834a; display: inline-grid; place-items: center; flex-shrink: 0; }
         .supply-category { display: inline-block; background: #f2f5f3; color: #52665a; border-radius: 8px; padding: 6px 9px; font-size: .78rem; font-weight: 600; }
@@ -129,6 +137,7 @@ export default function Display() {
         .supply-in-stock { background: #eaf6ee; color: #16834a; }
         .supply-action { border-radius: 8px; font-weight: 700; }
         .supply-reminder { border: 1px solid #cfe4d5; background: #f1f8f3; color: #2f6843; border-radius: 14px; }
+        @media (max-width: 767.98px) { .supply-table { min-width: 760px !important; table-layout: auto; } .supply-table th, .supply-table td { width: auto !important; } }
         @media (max-width: 575.98px) { .display-page { padding-left: 14px !important; padding-right: 14px !important; } .supply-card-header { padding: 15px; } .supply-table tbody td { padding: 14px; } }
       `}</style>
 
