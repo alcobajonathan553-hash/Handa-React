@@ -18,7 +18,11 @@
     npm install
     npm run dev
 
-The backend starts only after it connects to MySQL. Open http://localhost:8080/api/health. A successful response includes "database":"connected".
+The backend starts only after it connects to MySQL. Open http://localhost:8080/api/health. A successful response reports "database":"connected", all 8 required tables found, and the Firebase Admin initialization status.
+
+If the health response reports missing tables, import backend/database/handa_db.sql into the handa_db database. The script uses CREATE TABLE IF NOT EXISTS and INSERT IGNORE for the starter inventory, so it does not delete existing rows.
+
+If Firebase Admin reports "not-configured", check that backend/.env points to the service-account JSON file or contains FIREBASE_SERVICE_ACCOUNT_JSON. The service account must belong to the same Firebase project used by the React app. Never commit backend/.env or serviceAccountKey.json; the repository root .gitignore excludes them.
 
 ## 3. Configure React for local testing
 
@@ -47,7 +51,7 @@ New accounts are always residents. Never allow users to choose admin during publ
 
 ## API endpoints
 
-- GET /api/health: checks API and MySQL.
+- GET /api/health: checks API, selected MySQL database, all 8 required tables, and Firebase Admin initialization status.
 - POST /api/auth/profile: creates or refreshes the authenticated user's MySQL profile.
 - GET /api/profile: returns the current user's profile.
 - GET, PUT /api/checklists: the signed-in resident's checklist.
