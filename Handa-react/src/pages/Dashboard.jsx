@@ -159,6 +159,17 @@ function ProgressRing({ value }) {
   );
 }
 
+function getUniqueSupplies(items) {
+  const uniqueItems = new Map();
+
+  items.forEach((item) => {
+    const key = String(item.name || '').trim().toLowerCase();
+    if (key) uniqueItems.set(key, item);
+  });
+
+  return Array.from(uniqueItems.values());
+}
+
 export default function Dashboard({ user, onLogout, isOnline }) {
   const [activePage, setActivePage] = useState('dashboard');
   const [selectedDisaster, setSelectedDisaster] = useState(null);
@@ -191,30 +202,9 @@ export default function Dashboard({ user, onLogout, isOnline }) {
         const savedTasks = await checklistResponse.json();
         let savedSupplies = await suppliesResponse.json();
 
-        if (!savedSupplies.length) {
-          const starterSupplies = [
-            { name: 'Tubig na Inumin', quantity: 1, status: 'Ready' },
-            { name: 'First Aid Kit', quantity: 1, status: 'Ready' },
-            { name: 'Flashlight', quantity: 1, status: 'Check' },
-            { name: 'MGA Baterya', quantity: 1, status: 'Missing' },
-            { name: 'Radyo', quantity: 1, status: 'Ready' }
-          ];
-
-          for (const supply of starterSupplies) {
-            const response = await dashboardRequest('/api/user-supplies', {
-              method: 'POST',
-              body: JSON.stringify(supply)
-            });
-            if (!response.ok) throw new Error('Hindi ma-save ang starter emergency kit.');
-          }
-
-          const refreshed = await dashboardRequest('/api/user-supplies');
-          savedSupplies = await refreshed.json();
-        }
-
         if (active) {
           setTasks(savedTasks);
-          setSupplies(savedSupplies.map((item, index) => ({
+          setSupplies(getUniqueSupplies(savedSupplies).map((item, index) => ({
             ...item,
             icon: ['bi-droplet-fill', 'bi-bandaid-fill', 'bi-flashlight-fill', 'bi-battery-half', 'bi-broadcast-pin'][index % 5]
           })));
@@ -280,6 +270,11 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   async function addPersonalSupply(name) {
     const cleanName = name.trim();
     if (!cleanName) return false;
+
+    if (supplies.some((item) => item.name.trim().toLowerCase() === cleanName.toLowerCase())) {
+      setDashboardError('May kaparehong item na sa iyong emergency kit.');
+      return false;
+    }
 
     try {
       const response = await dashboardRequest('/api/user-supplies', {
