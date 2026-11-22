@@ -1,136 +1,190 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
+const mysql = require('mysql2/promise');
+const admin = require('firebase-admin');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const DATA_FILE = path.join(__dirname, 'supplies.json');
+app.use(express.json({ limit: '1mb' }));
 
-app.use(express.json());
-app.use(cors());
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+  : true;
+app.use(cors({ origin: allowedOrigins }));
 
-const initialSupplies = [
-    { id: 1, name: 'Bottled Water', category: 'Food and Water', quantity: 100, status: 'Available' },
-    { id: 2, name: 'First Aid Kit', category: 'Medical', quantity: 25, status: 'Available' },
-    { id: 3, name: 'Canned Goods', category: 'Food and Water', quantity: 80, status: 'Available' },
-    { id: 4, name: 'Flashlight', category: 'Lighting', quantity: 10, status: 'Low Stock' },
-    { id: 5, name: 'Emergency Blanket', category: 'Clothing and Shelter', quantity: 40, status: 'Available' },
-    { id: 6, name: 'Battery', category: 'Lighting', quantity: 8, status: 'Low Stock' }
-];
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'handa_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
-function loadSupplies() {
-    try {
-        if (!fs.existsSync(DATA_FILE)) {
-            fs.writeFileSync(DATA_FILE, JSON.stringify(initialSupplies, null, 2));
-            return [...initialSupplies];
-        }
+function initializeFirebaseAdmin() {
+  if (admin.apps.length) return;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    return;
+  }
+  admin.initializeApp({ credential: admin.credential.applicationDefault() });
+}
+initializeFirebaseAdmin();
 
-        const savedData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-        return Array.isArray(savedData) ? savedData : [...initialSupplies];
-    } catch (error) {
-        console.error('Could not load supplies data:', error);
-        return [...initialSupplies];
+async function requireFirebaseUser(req, res, next) {
+  const authorization = req.headers.authorization || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!token) return res.status(401).json({ message: 'Firebase sign-in is required.' });
+  try {
+    req.firebaseUser = await admin.auth().verifyIdToken(token);
+    next();
+  } catch (error) {
+    console.error('Firebase token verification failed:', error.message);
+    return res.status(401).json({ message: 'Your session is invalid or expired. Please sign in again.' });
+  }
+}
+
+async function requireAdmin(req, res, next) {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT role FROM users WHERE firebase_uid = ? LIMIT 1',
+      [req.firebaseUser.uid]
+    );
+    if (!rows.length || rows[0].role !== 'admin') {
+      return res.status(403).json({ message: 'Administrator access is required.' });
     }
+    next();
+  } catch (error) {
+    console.error('Admin permission check failed:', error);
+    res.status(500).json({ message: 'Could not verify administrator access.' });
+  }
 }
 
-let supplies = loadSupplies();
-
-function saveSupplies() {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(supplies, null, 2));
+function asyncRoute(handler) {
+  return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
 
-function getNextId() {
-    return supplies.reduce((highest, supply) => Math.max(highest, Number(supply.id) || 0), 0) + 1;
-}
-
-function getStatus(quantity) {
-    return quantity <= 15 ? 'Low Stock' : 'Available';
+function getSupplyStatus(quantity) {
+  return Number(quantity) <= 15 ? 'Low Stock' : 'Available';
 }
 
 function validateSupply(req, res, next) {
-    const { name, category, quantity } = req.body || {};
-
-    if (
-        typeof name !== 'string' ||
-        !name.trim() ||
-        typeof category !== 'string' ||
-        !category.trim() ||
-        quantity === undefined ||
-        quantity === '' ||
-        !Number.isInteger(Number(quantity)) ||
-        Number(quantity) < 0
-    ) {
-        return res.status(400).json({
-            message: 'Valid name, category, and non-negative whole-number quantity are required.'
-        });
-    }
-
-    req.validSupply = {
-        name: name.trim(),
-        category: category.trim(),
-        quantity: Number(quantity)
-    };
-
-    next();
+  const { name, category, quantity } = req.body || {};
+  if (
+    typeof name !== 'string' || !name.trim() ||
+    typeof category !== 'string' || !category.trim() ||
+    quantity === undefined || quantity === '' ||
+    !Number.isInteger(Number(quantity)) || Number(quantity) < 0
+  ) {
+    return res.status(400).json({
+      message: 'Valid name, category, and non-negative whole-number quantity are required.'
+    });
+  }
+  req.validSupply = {
+    name: name.trim(),
+    category: category.trim(),
+    quantity: Number(quantity)
+  };
+  next();
 }
 
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'handa-api' });
+app.get('/api/health', asyncRoute(async (req, res) => {
+  await pool.query('SELECT 1');
+  res.json({ status: 'ok', service: 'handa-api', database: 'connected' });
+}));
+
+app.post('/api/auth/profile', requireFirebaseUser, asyncRoute(async (req, res) => {
+  const firebaseUser = req.firebaseUser;
+  const name = String(req.body.name || firebaseUser.name || firebaseUser.email || 'Resident').trim();
+  const photoUrl = String(req.body.photoURL || firebaseUser.picture || '').trim();
+
+  await pool.execute(
+    `INSERT INTO users (firebase_uid, email, name, photo_url, role)
+     VALUES (?, ?, ?, ?, 'resident')
+     ON DUPLICATE KEY UPDATE
+       email = VALUES(email),
+       name = VALUES(name),
+       photo_url = VALUES(photo_url)`,
+    [firebaseUser.uid, firebaseUser.email || '', name, photoUrl]
+  );
+
+  const [rows] = await pool.execute(
+    'SELECT firebase_uid, email, name, photo_url, barangay, role FROM users WHERE firebase_uid = ? LIMIT 1',
+    [firebaseUser.uid]
+  );
+  res.json(rows[0]);
+}));
+
+app.get('/api/profile', requireFirebaseUser, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    'SELECT firebase_uid, email, name, photo_url, barangay, role FROM users WHERE firebase_uid = ? LIMIT 1',
+    [req.firebaseUser.uid]
+  );
+  if (!rows.length) return res.status(404).json({ message: 'Profile not found. Sign in again to create it.' });
+  res.json(rows[0]);
+}));
+
+app.get('/api/supplies', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    'SELECT id, name, category, quantity, status, created_at FROM supplies ORDER BY id DESC'
+  );
+  res.json(rows);
+}));
+
+app.post('/api/supplies', requireFirebaseUser, requireAdmin, validateSupply, asyncRoute(async (req, res) => {
+  const { name, category, quantity } = req.validSupply;
+  const [result] = await pool.execute(
+    'INSERT INTO supplies (name, category, quantity, status) VALUES (?, ?, ?, ?)',
+    [name, category, quantity, getSupplyStatus(quantity)]
+  );
+  const [rows] = await pool.execute(
+    'SELECT id, name, category, quantity, status, created_at FROM supplies WHERE id = ?',
+    [result.insertId]
+  );
+  res.status(201).json(rows[0]);
+}));
+
+app.put('/api/supplies/:id', requireFirebaseUser, requireAdmin, validateSupply, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: 'Invalid supply ID.' });
+  const { name, category, quantity } = req.validSupply;
+  const [result] = await pool.execute(
+    'UPDATE supplies SET name = ?, category = ?, quantity = ?, status = ? WHERE id = ?',
+    [name, category, quantity, getSupplyStatus(quantity), id]
+  );
+  if (!result.affectedRows) return res.status(404).json({ message: 'Supply not found.' });
+  const [rows] = await pool.execute(
+    'SELECT id, name, category, quantity, status, created_at FROM supplies WHERE id = ?',
+    [id]
+  );
+  res.json(rows[0]);
+}));
+
+app.delete('/api/supplies/:id', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: 'Invalid supply ID.' });
+  const [result] = await pool.execute('DELETE FROM supplies WHERE id = ?', [id]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Supply not found.' });
+  res.json({ id });
+}));
+
+app.use((error, req, res, next) => {
+  console.error('API error:', error);
+  if (res.headersSent) return next(error);
+  res.status(500).json({ message: 'An unexpected server error occurred.' });
 });
 
-app.get('/api/supplies', (req, res) => {
-    res.json(supplies);
-});
-
-app.post('/api/supplies', validateSupply, (req, res) => {
-    const newSupply = {
-        id: getNextId(),
-        ...req.validSupply,
-        status: getStatus(req.validSupply.quantity)
-    };
-
-    supplies.push(newSupply);
-    saveSupplies();
-
-    console.log('Supply added ->', newSupply);
-    res.status(201).json(newSupply);
-});
-
-app.put('/api/supplies/:id', validateSupply, (req, res) => {
-    const id = Number(req.params.id);
-    const index = supplies.findIndex((supply) => Number(supply.id) === id);
-
-    if (!Number.isInteger(id) || index === -1) {
-        return res.status(404).json({ message: 'Supply not found.' });
-    }
-
-    supplies[index] = {
-        id,
-        ...req.validSupply,
-        status: getStatus(req.validSupply.quantity)
-    };
-
-    saveSupplies();
-    console.log('Supply edited ->', supplies[index]);
-    res.json(supplies[index]);
-});
-
-app.delete('/api/supplies/:id', (req, res) => {
-    const id = Number(req.params.id);
-    const exists = supplies.some((supply) => Number(supply.id) === id);
-
-    if (!Number.isInteger(id) || !exists) {
-        return res.status(404).json({ message: 'Supply not found.' });
-    }
-
-    supplies = supplies.filter((supply) => Number(supply.id) !== id);
-    saveSupplies();
-
-    console.log('Supply deleted -> id:', id);
-    res.json({ id });
-});
-
-app.listen(PORT, () => {
-    console.log(`Handa API running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await pool.query('SELECT 1');
+    console.log('MySQL connection established.');
+    app.listen(PORT, () => console.log('Handa API running on port ' + PORT));
+  } catch (error) {
+    console.error('Unable to connect to MySQL:', error.message);
+    process.exit(1);
+  }
+}
+startServer();
