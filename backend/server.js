@@ -234,7 +234,6 @@ app.put('/api/checklists', requireFirebaseUser, requireProfileId, asyncRoute(asy
       [req.mysqlUserId]
     );
     const existingIds = new Set(existingRows.map((row) => String(row.id)));
-    const submittedIds = new Set();
 
     for (const task of tasks) {
       const taskText = task.text.trim();
@@ -246,13 +245,11 @@ app.put('/api/checklists', requireFirebaseUser, requireProfileId, asyncRoute(asy
           'UPDATE checklists SET task_text = ?, completed = ? WHERE id = ? AND user_id = ?',
           [taskText, taskDone, taskId, req.mysqlUserId]
         );
-        submittedIds.add(String(taskId));
       } else {
         const [insertResult] = await connection.execute(
           'INSERT INTO checklists (user_id, task_text, completed) VALUES (?, ?, ?)',
           [req.mysqlUserId, taskText, taskDone]
         );
-        submittedIds.add(String(insertResult.insertId));
       }
     }
 
