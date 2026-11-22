@@ -9,14 +9,7 @@ import {
 } from 'firebase/auth';
 
 import {
-  doc,
-  setDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-
-import {
   auth,
-  db,
   googleProvider
 } from './firebase';
 
@@ -111,41 +104,11 @@ export default function LoginPage({
           }
         );
 
-        /*
-          New accounts are resident by default.
-
-          IMPORTANT:
-          We only set resident here because this is a
-          BRAND NEW account.
-
-          Existing accounts are NOT changed.
-        */
-        await setDoc(
-          doc(
-            db,
-            'users',
-            credential.user.uid
-          ),
-          {
-            name: displayName,
-            displayName,
-            email,
-            photoURL:
-              credential.user.photoURL || '',
-            barangay: 'B. Del Mundo',
-            role: 'resident',
-            createdAt: serverTimestamp(),
-          }
-        );
+        // The backend creates the MySQL profile after Firebase sign-in.
+        // New accounts receive the resident role by default in MySQL.
       } else {
-        /*
-          Email/password login.
-
-          We DO NOT modify the Firestore role here.
-
-          App.jsx will read:
-          users/{uid}.role
-        */
+        // Firebase Authentication verifies the email and password.
+        // The backend loads the user's role from MySQL.
         await signInWithEmailAndPassword(
           auth,
           email,
@@ -174,19 +137,7 @@ export default function LoginPage({
     setGoogleLoading(true);
 
     try {
-      /*
-        IMPORTANT FIX:
-
-        DO NOT do this anymore:
-
-        role: 'resident'
-
-        because it would overwrite an existing
-        admin role.
-
-        App.jsx is responsible for reading the
-        existing Firestore role.
-      */
+      // The backend reads the role from MySQL after Firebase sign-in.
       await signInWithPopup(
         auth,
         googleProvider
