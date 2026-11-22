@@ -13,7 +13,8 @@ export default function Display() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const api = "http://localhost:8080/api/supplies";
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
+  const api = `${API_BASE_URL}/api/supplies`;
 
   function getSupplyStatus(supply) {
     if (supply.status && supply.status.trim()) return supply.status;
