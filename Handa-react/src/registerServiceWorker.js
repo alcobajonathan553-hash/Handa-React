@@ -1,19 +1,35 @@
 export function registerSW() {
-  if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  if (!('serviceWorker' in navigator)) return;
+
+  if (import.meta.env.PROD) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
         .register('/service-worker.js')
         .then((registration) => {
-          console.log('SW registered: ', registration);
+          console.log('Service worker registered:', registration.scope);
         })
-        .catch((registrationError) => {
-          console.log('SW registration failed: ', registrationError);
+        .catch((error) => {
+          console.error('Service worker registration failed:', error);
         });
     });
-  } else if ('serviceWorker' in navigator) {
-    // Register during development build testing
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js');
-    });
+
+    return;
   }
+
+  // Do not let an old production service worker interfere with Vite dev mode.
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      const workerUrls = [
+        registration.active?.scriptURL,
+        registration.waiting?.scriptURL,
+        registration.installing?.scriptURL,
+      ].filter(Boolean);
+
+      if (workerUrls.some((url) => new URL(url).pathname.endsWith('/service-worker.js'))) {
+        registration.unregister();
+      }
+    });
+  }).catch((error) => {
+    console.warn('Could not clean up the development service worker:', error);
+  });
 }
