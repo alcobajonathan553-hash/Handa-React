@@ -1,66 +1,87 @@
-const CACHE_NAME = 'disaster-guide-v1';
+const CACHE_NAME = 'handa-awareness-v2';
+
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/src/main.jsx',
-  '/src/App.jsx',
-  '/src/index.css',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
-// Install Event
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME).then(async (cache) => {
       console.log('[ServiceWorker] Caching core assets');
-      return cache.addAll(ASSETS_TO_CACHE);
+
+      for (const asset of ASSETS_TO_CACHE) {
+        try {
+          await cache.add(asset);
+        } catch (error) {
+          console.warn('[ServiceWorker] Failed to cache:', asset, error);
+        }
+      }
     })
   );
+
   self.skipWaiting();
 });
 
-// Activate Event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('[ServiceWorker] Removing old cache:', cache);
-            return caches.delete(cache);
+    caches.keys().then(async (cacheNames) => {
+      await Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[ServiceWorker] Removing old cache:', cacheName);
+            return caches.delete(cacheName);
           }
         })
       );
+
+      await self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
-// Fetch Event - Network First, fallback to Cache
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const request = event.request;
+
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        // Update cache dynamically
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
+    fetch(request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const responseCopy = response.clone();
+
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put(request, responseCopy);
           });
         }
-        return networkResponse;
+
+        return response;
       })
-      .catch(() => {
-        // Network failed, serve from cache
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          if (event.request.headers.get('accept').includes('text/html')) {
-            return caches.match('/index.html');
-          }
+      .catch(async () => {
+        const cachedResponse = await caches.match(request);
+
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        if (request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+
+        return new Response('Offline - content unavailable', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: {
+            'Content-Type': 'text/plain',
+          },
         });
       })
   );
