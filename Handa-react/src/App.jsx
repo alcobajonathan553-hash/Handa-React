@@ -56,9 +56,9 @@ export default function App() {
           })
         });
 
-        const profile = await response.json();
+        const profile = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(profile.message || 'Could not load your MySQL profile.');
+          throw new Error(profile.message || `Profile API failed (HTTP ${response.status}). Check the backend URL, CORS, Firebase Admin credentials, and MySQL connection.`);
         }
 
         const currentRole = profile.role === 'admin' ? 'admin' : 'resident';
@@ -125,7 +125,7 @@ export default function App() {
           <h4 className="fw-bold">Database connection required</h4>
           <p className="text-secondary">Your Firebase account is signed in, but Handa could not load your MySQL profile.</p>
           <div className="alert alert-warning">{profileError}</div>
-          <p className="small text-secondary">Check that MySQL and the backend are running, then sign out and sign in again.</p>
+          <p className="small text-secondary">For local testing, start XAMPP MySQL and the Handa backend. For the deployed website, VITE_API_URL must point to a publicly hosted backend connected to a hosted MySQL database. A deployed website cannot connect to localhost on your computer.</p>
           <button className="btn btn-success" onClick={handleLogout}>Sign out</button>
         </div>
       </div>
@@ -139,7 +139,8 @@ export default function App() {
           <LoginPage onLogin={handleLogin} isOnline={isOnline} />
         ) : (
           <Routes>
-            <Route path="/" element={<LandingPage user={user} role={role} onLogin={handleLogin} onLogout={handleLogout} isOnline={isOnline} />} />
+            <Route path="/" element={<Navigate to={role === 'admin' ? '/display' : '/dashboard'} replace />} />
+            <Route path="/home" element={<LandingPage user={user} role={role} onLogin={handleLogin} onLogout={handleLogout} isOnline={isOnline} />} />
             <Route path="/dashboard" element={role === 'resident' ? <Dashboard user={user} onLogout={handleLogout} isOnline={isOnline} /> : <Navigate to="/" replace />} />
             <Route path="/display" element={role === 'admin' ? <Display user={user} role={role} /> : <Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
