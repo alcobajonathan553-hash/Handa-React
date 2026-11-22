@@ -20,7 +20,8 @@ export default function Display() {
   async function authorizedFetch(url, options = {}) {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error("Please sign in again.");
-    const token = await currentUser.getIdToken();
+    // Force-refresh the Firebase ID token to avoid sending an expired cached token.
+    const token = await currentUser.getIdToken(true);
     return fetch(url, {
       ...options,
       headers: {
@@ -28,6 +29,11 @@ export default function Display() {
         Authorization: `Bearer ${token}`
       }
     });
+  }
+
+  async function throwApiError(response, fallbackMessage) {
+    const result = await response.json().catch(() => ({}));
+    throw new Error(result.message || `${fallbackMessage} (HTTP ${response.status})`);
   }
 
   function getSupplyStatus(supply) {
@@ -39,11 +45,11 @@ export default function Display() {
     try {
       setError("");
       const response = await authorizedFetch(api);
-      if (!response.ok) throw new Error("Failed to load emergency supplies.");
+      if (!response.ok) await throwApiError(response, "Failed to load emergency supplies.");
       const data = await response.json();
       setSupplies(data);
     } catch (err) {
-      setError("Unable to connect to the server. Please check if the backend is running.");
+      setError(err.message || "Unable to connect to the server. Please check if the backend is running.");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -62,13 +68,13 @@ export default function Display() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, category, quantity })
       });
-      if (!response.ok) throw new Error("Failed to add supply.");
+      if (!response.ok) await throwApiError(response, "Failed to add supply.");
       setName("");
       setCategory("");
       setQuantity("");
       await getSupplies();
     } catch (err) {
-      setError("Unable to add supply. Please try again.");
+      setError(err.message || "Unable to add supply. Please try again.");
       console.error(err);
     }
   }
@@ -89,11 +95,11 @@ export default function Display() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editName, category: editCategory, quantity: editQuantity })
       });
-      if (!response.ok) throw new Error("Failed to update supply.");
+      if (!response.ok) await throwApiError(response, "Failed to update supply.");
       setIsEditModalOpen(false);
       await getSupplies();
     } catch (err) {
-      setError("Unable to update supply. Please try again.");
+      setError(err.message || "Unable to update supply. Please try again.");
       console.error(err);
     }
   }
@@ -102,10 +108,10 @@ export default function Display() {
     if (!window.confirm("Are you sure you want to delete this supply?")) return;
     try {
       const response = await authorizedFetch(`${api}/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Failed to delete supply.");
+      if (!response.ok) await throwApiError(response, "Failed to delete supply.");
       await getSupplies();
     } catch (err) {
-      setError("Unable to delete supply. Please try again.");
+      setError(err.message || "Unable to delete supply. Please try again.");
       console.error(err);
     }
   }
