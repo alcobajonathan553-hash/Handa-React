@@ -168,6 +168,11 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [search, setSearch] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
   const [dashboardError, setDashboardError] = useState('');
+  const [contacts, setContacts] = useState([]);
+  const [evacuationPlan, setEvacuationPlan] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationOpen, setNotificationOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -220,9 +225,64 @@ export default function Dashboard({ user, onLogout, isOnline }) {
       }
     }
 
+    async function loadDashboardExtras() {
+      const requests = await Promise.allSettled([
+        dashboardRequest('/api/emergency-contacts'),
+        dashboardRequest('/api/evacuation-plan'),
+        dashboardRequest('/api/activity-logs'),
+        dashboardRequest('/api/notifications')
+      ]);
+
+      if (!active) return;
+
+      const [contactsResult, planResult, activitiesResult, notificationsResult] = requests;
+
+      if (contactsResult.status === 'fulfilled' && contactsResult.value.ok) {
+        setContacts(await contactsResult.value.json());
+      }
+      if (planResult.status === 'fulfilled' && planResult.value.ok) {
+        setEvacuationPlan(await planResult.value.json());
+      }
+      if (activitiesResult.status === 'fulfilled' && activitiesResult.value.ok) {
+        setActivities(await activitiesResult.value.json());
+      }
+      if (notificationsResult.status === 'fulfilled' && notificationsResult.value.ok) {
+        setNotifications(await notificationsResult.value.json());
+      }
+    }
+
     loadResidentData();
+    loadDashboardExtras();
     return () => { active = false; };
   }, []);
+
+  async function recordActivity(action, description) {
+    try {
+      const response = await dashboardRequest('/api/activity-logs', {
+        method: 'POST',
+        body: JSON.stringify({ action, description })
+      });
+      if (!response.ok) return;
+      const logsResponse = await dashboardRequest('/api/activity-logs');
+      if (logsResponse.ok) setActivities(await logsResponse.json());
+    } catch (error) {
+      console.error('Activity log could not be saved:', error);
+    }
+  }
+
+  async function markNotificationRead(id) {
+    try {
+      const response = await dashboardRequest(`/api/notifications/${id}/read`, {
+        method: 'PATCH'
+      });
+      if (!response.ok) throw new Error('Hindi ma-update ang notification.');
+      setNotifications((current) => current.map((item) =>
+        item.id === id ? { ...item, isRead: true } : item
+      ));
+    } catch (error) {
+      setDashboardError(error.message);
+    }
+  }
 
   const completedTasks = tasks.filter((task) => task.done).length;
 
@@ -278,6 +338,8 @@ export default function Dashboard({ user, onLogout, isOnline }) {
         body: JSON.stringify({ tasks: updatedTasks })
       });
       if (!response.ok) throw new Error('Hindi na-save ang checklist.');
+      const changedTask = updatedTasks.find((task) => task.id === id);
+      await recordActivity('Checklist updated', changedTask?.text || 'Updated a preparedness checklist task');
     } catch (error) {
       console.error(error);
       setDashboardError(error.message);
@@ -305,6 +367,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
         })
       });
       if (!response.ok) throw new Error('Hindi na-save ang supply status.');
+      await recordActivity('Emergency kit updated', `${changedSupply.name} status changed to ${changedSupply.status}`);
     } catch (error) {
       console.error(error);
       setDashboardError(error.message);
@@ -396,9 +459,11 @@ export default function Dashboard({ user, onLogout, isOnline }) {
             <button
               className="icon-button"
               title="Notifications"
+              onClick={() => setNotificationOpen((open) => !open)}
+              aria-expanded={notificationOpen}
             >
               <i className="bi bi-bell" />
-              <span className="notification-dot">2</span>
+              {notifications.some((item) => !item.isRead) && <span className="notification-dot">{notifications.filter((item) => !item.isRead).length}</span>}
             </button>
 
             <div className="date-block d-none d-xl-block">
@@ -406,6 +471,26 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               <span>10:24 AM</span>
             </div>
           </div>
+          {notificationOpen && (
+            <div className="notification-dropdown shadow rounded-3 bg-white p-3" style={{ position: 'absolute', right: 24, top: 76, zIndex: 20, width: 'min(360px, calc(100vw - 32px)', maxHeight: 360, overflowY: 'auto' }}>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <strong>Notifications</strong>
+                <button className="btn btn-sm btn-link text-success p-0" onClick={() => setNotificationOpen(false)}>Close</button>
+              </div>
+              {notifications.length === 0 ? (
+                <p className="small text-secondary mb-0">Wala pang notifications sa iyong account.</p>
+              ) : notifications.map((item) => (
+                <div key={item.id} className="border-top py-2">
+                  <div className="d-flex justify-content-between gap-2">
+                    <strong className="small">{item.title}</strong>
+                    {!item.isRead && <span className="badge bg-success">New</span>}
+                  </div>
+                  <p className="small text-secondary mb-1">{item.message}</p>
+                  {!item.isRead && <button className="btn btn-sm btn-outline-success" onClick={() => markNotificationRead(item.id)}>Mark as read</button>}
+                </div>
+              ))}
+            </div>
+          )}
         </header>
 
         <main className="dashboard-content">
@@ -423,6 +508,9 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               onCycleSupply={cycleSupply}
               onSelectGuide={setSelectedDisaster}
               filteredDisasters={filteredDisasters}
+              contacts={contacts}
+              evacuationPlan={evacuationPlan}
+              activities={activities}
             />
           )}
 
@@ -583,6 +671,9 @@ function DashboardHome({
   onCycleSupply,
   onSelectGuide,
   filteredDisasters,
+  contacts,
+  evacuationPlan,
+  activities,
 }) {
   return (
     <>
@@ -795,11 +886,12 @@ function DashboardHome({
               <i className="bi bi-geo-alt-fill" />
             </div>
 
-            <strong>Wala pang naisusulat na plan</strong>
+            <strong>{evacuationPlan && (evacuationPlan.evacuationCenter || evacuationPlan.meetingPoint) ? 'May naka-save na evacuation plan' : 'Wala pang naisusulat na plan'}</strong>
 
             <p>
-              I-set ang inyong evacuation area, safe routes, at family
-              meeting point.
+              {evacuationPlan && (evacuationPlan.evacuationCenter || evacuationPlan.meetingPoint)
+                ? `Evacuation Center: ${evacuationPlan.evacuationCenter || 'Not set'} • Meeting Point: ${evacuationPlan.meetingPoint || 'Not set'}`
+                : 'I-set ang inyong evacuation area, safe routes, at family meeting point.'}
             </p>
 
             <button
@@ -822,7 +914,7 @@ function DashboardHome({
           />
 
           <div className="contacts-count">
-            <strong>4 contacts ang naka-save</strong>
+            <strong>{contacts.length} contact{contacts.length === 1 ? '' : 's'} ang naka-save</strong>
 
             <button
               className="btn btn-sm btn-outline-handa"
@@ -833,37 +925,16 @@ function DashboardHome({
           </div>
 
           <div className="contact-chips">
-            <div>
-              <i className="bi bi-shield-fill" />
-              <span>
-                PNP Mansalay
-                <small>09XXXXXXXXX</small>
-              </span>
-            </div>
-
-            <div>
-              <i className="bi bi-fire" />
-              <span>
-                BFP Mansalay
-                <small>09XXXXXXXXX</small>
-              </span>
-            </div>
-
-            <div>
-              <i className="bi bi-plus-circle-fill" />
-              <span>
-                Mansalay Medicare
-                <small>09XXXXXXXXX</small>
-              </span>
-            </div>
-
-            <div>
-              <i className="bi bi-person-fill" />
-              <span>
-                Family Contact
-                <small>Saved</small>
-              </span>
-            </div>
+            {contacts.slice(0, 4).map((contact) => (
+              <div key={contact.id}>
+                <i className="bi bi-person-lines-fill" />
+                <span>
+                  {contact.name}
+                  <small>{contact.phone}</small>
+                </span>
+              </div>
+            ))}
+            {contacts.length === 0 && <p className="small text-secondary mb-0">Wala pang saved contacts.</p>}
           </div>
         </div>
 
@@ -998,29 +1069,14 @@ function DashboardHome({
           />
 
           <ul>
-            <li>
-              <i className="bi bi-check-circle-fill" />
-              Natapos ang Flood Checklist
-              <small>1 araw ang nakalipas</small>
-            </li>
-
-            <li>
-              <i className="bi bi-check-circle-fill" />
-              Nalagay ang Flashlight sa Emergency Kit
-              <small>1 araw ang nakalipas</small>
-            </li>
-
-            <li>
-              <i className="bi bi-check-circle-fill" />
-              Na-update ang Family Contact
-              <small>2 araw ang nakalipas</small>
-            </li>
-
-            <li>
-              <i className="bi bi-check-circle-fill" />
-              Nakalikha ng Evacuation Plan
-              <small>3 araw ang nakalipas</small>
-            </li>
+            {activities.slice(0, 5).map((activity) => (
+              <li key={activity.id}>
+                <i className="bi bi-check-circle-fill" />
+                {activity.description || activity.action}
+                <small>{activity.createdAt ? new Date(activity.createdAt).toLocaleString() : ''}</small>
+              </li>
+            ))}
+            {activities.length === 0 && <li className="text-secondary">Wala pang recorded activities.</li>}
           </ul>
         </div>
       </section>
@@ -1169,6 +1225,10 @@ function EvacuationPage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Hindi na-save ang evacuation plan.');
       setMessage('Matagumpay na na-save ang iyong evacuation plan.');
+      await dashboardRequest('/api/activity-logs', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'Evacuation plan updated', description: 'Updated the family evacuation plan.' })
+      });
     } catch (error) {
       setMessage(error.message);
     }
@@ -1220,6 +1280,10 @@ function ContactsPage() {
       setName('');
       setPhone('');
       setMessage('Naidagdag ang emergency contact.');
+      await dashboardRequest('/api/activity-logs', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'Emergency contact added', description: `Added emergency contact: ${name.trim()}` })
+      });
       await loadContacts();
     } catch (error) { setMessage(error.message); }
   }
@@ -1228,6 +1292,10 @@ function ContactsPage() {
     try {
       const response = await dashboardRequest(`/api/emergency-contacts/${id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Hindi mabura ang contact.');
+      await dashboardRequest('/api/activity-logs', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'Emergency contact removed', description: `Removed emergency contact ID ${id}` })
+      });
       await loadContacts();
     } catch (error) { setMessage(error.message); }
   }
