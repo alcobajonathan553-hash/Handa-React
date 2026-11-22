@@ -43,7 +43,7 @@ In the first terminal:
 
 ```powershell
 cd backend
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env } else { Write-Host 'Existing .env kept unchanged.' }
 npm ci
 npm run dev
 ```
