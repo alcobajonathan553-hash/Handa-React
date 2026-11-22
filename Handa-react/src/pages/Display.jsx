@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { auth } from "../components/firebase.js";
 
 export default function Display() {
   const [supplies, setSupplies] = useState([]);
@@ -16,6 +17,19 @@ export default function Display() {
   const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
   const api = `${API_BASE_URL}/api/supplies`;
 
+  async function authorizedFetch(url, options = {}) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("Please sign in again.");
+    const token = await currentUser.getIdToken();
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`
+      }
+    });
+  }
+
   function getSupplyStatus(supply) {
     if (supply.status && supply.status.trim()) return supply.status;
     return Number(supply.quantity) <= 15 ? "Low Stock" : "Available";
@@ -24,7 +38,7 @@ export default function Display() {
   async function getSupplies() {
     try {
       setError("");
-      const response = await fetch(api);
+      const response = await authorizedFetch(api);
       if (!response.ok) throw new Error("Failed to load emergency supplies.");
       const data = await response.json();
       setSupplies(data);
@@ -43,7 +57,7 @@ export default function Display() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      const response = await fetch(api, {
+      const response = await authorizedFetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, category, quantity })
@@ -70,7 +84,7 @@ export default function Display() {
   async function handleUpdate(e) {
     e.preventDefault();
     try {
-      const response = await fetch(`${api}/${editID}`, {
+      const response = await authorizedFetch(`${api}/${editID}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editName, category: editCategory, quantity: editQuantity })
@@ -87,7 +101,7 @@ export default function Display() {
   async function handleDelete(id) {
     if (!window.confirm("Are you sure you want to delete this supply?")) return;
     try {
-      const response = await fetch(`${api}/${id}`, { method: "DELETE" });
+      const response = await authorizedFetch(`${api}/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Failed to delete supply.");
       await getSupplies();
     } catch (err) {
