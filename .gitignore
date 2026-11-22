@@ -1,0 +1,25 @@
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+serviceAccountKey.json
+**/serviceAccountKey.json
+*.pem
+*.key
+
+# Node dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+
+# Logs and OS/editor files
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/
