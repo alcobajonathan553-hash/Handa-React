@@ -264,8 +264,52 @@ app.put('/api/checklists', requireFirebaseUser, requireProfileId, asyncRoute(asy
 }));
 
 app.get('/api/user-supplies', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
-  const [rows] = await pool.execute('SELECT id, name, quantity, status FROM user_supplies WHERE user_id = ? ORDER BY id', [req.mysqlUserId]);
-  res.json(rows);
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Lock the user's profile row so simultaneous requests cannot seed duplicate starter items.
+    await connection.execute(
+      'SELECT id FROM users WHERE id = ? FOR UPDATE',
+      [req.mysqlUserId]
+    );
+
+    let [rows] = await connection.execute(
+      'SELECT id, name, quantity, status FROM user_supplies WHERE user_id = ? ORDER BY id',
+      [req.mysqlUserId]
+    );
+
+    if (!rows.length) {
+      const starterSupplies = [
+        ['Tubig na Inumin', 1, 'Ready'],
+        ['First Aid Kit', 1, 'Ready'],
+        ['Flashlight', 1, 'Check'],
+        ['MGA Baterya', 1, 'Missing'],
+        ['Radyo', 1, 'Ready']
+      ];
+
+      for (const [name, quantity, status] of starterSupplies) {
+        await connection.execute(
+          'INSERT INTO user_supplies (user_id, name, quantity, status) VALUES (?, ?, ?, ?)',
+          [req.mysqlUserId, name, quantity, status]
+        );
+      }
+
+      [rows] = await connection.execute(
+        'SELECT id, name, quantity, status FROM user_supplies WHERE user_id = ? ORDER BY id',
+        [req.mysqlUserId]
+      );
+    }
+
+    await connection.commit();
+    res.json(rows);
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }));
 
 app.post('/api/user-supplies', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
