@@ -62,7 +62,7 @@ In a second terminal:
 
 ```powershell
 cd Handa-react
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env } else { Write-Host 'Existing .env kept unchanged.' }
 npm ci
 npm run dev
 ```
@@ -95,3 +95,12 @@ The generated static files are placed in `Handa-react/dist`.
 - Never commit environment files, passwords, private keys, service-account JSON, or `node_modules`.
 
 See [backend/MYSQL-SETUP.md](backend/MYSQL-SETUP.md) for database details and API endpoints.
+
+
+## Production deployment
+
+The frontend and API are separate services. For Netlify, set `VITE_API_URL` to the public HTTPS URL of the deployed Handa backend (for example, `https://your-handa-api.onrender.com`, without a trailing slash), then trigger a new frontend deploy. Do not set it to `localhost` for a deployed site. The backend must also be connected to a reachable hosted MySQL database; a MySQL instance running only in XAMPP on a personal computer is not reachable by the hosted backend.
+
+On the backend host, configure `PORT` using the platform-provided port, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `FIREBASE_SERVICE_ACCOUNT_JSON` (or secure service-account file configuration), and `CORS_ORIGIN` with the exact deployed frontend origin, such as `https://handa-awareness.netlify.app`. Keep credentials in the hosting provider's environment settings, never in Git.
+
+After deployment, check `https://YOUR-BACKEND-HOST/api/health`. It should report `status: ok`, `database: connected`, and all eight required tables found. The frontend now intentionally reports a missing production API configuration instead of silently requesting `localhost`.
