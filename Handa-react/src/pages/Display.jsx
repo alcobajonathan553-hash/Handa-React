@@ -99,26 +99,26 @@ export default function Display() {
   const totalQuantity = supplies.reduce((total, supply) => total + Number(supply.quantity || 0), 0);
 
   return (
-    <div className="container display-page py-4 py-md-5">
+    <div className="container-fluid display-page py-4 py-md-5 px-3 px-lg-5">
       <style>{`
-        .display-page { --supply-green: #16834a; --supply-green-dark: #11683a; --supply-green-light: #eaf6ee; --supply-border: #e1eae3; color: #263b2e; }
+        .display-page { width: 100%; max-width: 100%; margin: 0 auto; --supply-green: #16834a; --supply-green-dark: #11683a; --supply-green-light: #eaf6ee; --supply-border: #e1eae3; color: #263b2e; }
         .supply-page-title { color: #173c29; font-weight: 800; letter-spacing: -.035em; }
         .supply-page-subtitle { color: #718076; }
-        .supply-card { background: #fff; border: 1px solid var(--supply-border); border-radius: 17px; overflow: hidden; box-shadow: 0 6px 24px rgba(23,60,41,.055); }
-        .supply-card-header { background: #fff; border-bottom: 1px solid var(--supply-border); padding: 17px 21px; color: #244b34; font-weight: 800; }
+        .supply-card { width: 100%; margin-bottom: 28px !important; background: #fff; border: 1px solid var(--supply-border); border-radius: 17px; overflow: hidden; box-shadow: 0 6px 24px rgba(23,60,41,.055); }
+        .supply-card-header { min-height: 68px; background: #fff; border-bottom: 1px solid var(--supply-border); padding: 19px 24px; color: #244b34; font-weight: 800; }
         .supply-section-icon { width: 37px; height: 37px; border-radius: 11px; background: var(--supply-green-light); color: var(--supply-green); display: inline-grid; place-items: center; margin-right: 11px; }
         .supply-form-label { font-size: .84rem; font-weight: 700; color: #405548; margin-bottom: 8px; }
-        .display-page .form-control, .display-page .form-select { min-height: 46px; border-radius: 10px; border-color: #dce6df; font-size: .9rem; }
+        .display-page .form-control, .display-page .form-select { width: 100%; min-height: 50px; border-radius: 10px; border-color: #dce6df; font-size: .9rem; }
         .display-page .form-control:focus, .display-page .form-select:focus { border-color: var(--supply-green); box-shadow: 0 0 0 .2rem rgba(22,131,74,.13); }
         .supply-add-btn { min-height: 46px; border-radius: 10px; background: var(--supply-green); border-color: var(--supply-green); font-weight: 700; }
         .supply-add-btn:hover { background: var(--supply-green-dark); border-color: var(--supply-green-dark); }
         .supply-tip { background: #f1f8f3; border: 1px solid #dcefe2; color: #52705c; border-radius: 11px; padding: 12px 15px; font-size: .84rem; }
-        .supply-stat { height: 100%; border: 1px solid var(--supply-border); border-radius: 14px; padding: 16px 18px; background: #fff; box-shadow: 0 4px 15px rgba(23,60,41,.035); }
+        .supply-stat { min-height: 104px; height: 100%; border: 1px solid var(--supply-border); border-radius: 14px; padding: 16px 18px; background: #fff; box-shadow: 0 4px 15px rgba(23,60,41,.035); }
         .supply-stat-label { color: #718076; font-size: .78rem; font-weight: 700; }
         .supply-stat-value { color: #203d2b; font-size: 1.55rem; font-weight: 800; line-height: 1.25; }
-        .supply-table { min-width: 720px; }
-        .supply-table thead th { background: #f0f7f2; color: #355342; border-bottom: 1px solid #dfeae2; font-size: .78rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; padding: 15px 17px; white-space: nowrap; }
-        .supply-table tbody td { padding: 14px 17px; vertical-align: middle; color: #405448; font-size: .88rem; border-color: #edf2ee; }
+        .supply-table { width: 100%; min-width: 900px; table-layout: auto; }
+        .supply-table thead th { padding: 18px 22px; background: #f0f7f2; color: #355342; border-bottom: 1px solid #dfeae2; font-size: .78rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; padding: 15px 17px; white-space: nowrap; }
+        .supply-table tbody td { padding: 20px 22px; vertical-align: middle; color: #405448; font-size: .88rem; border-color: #edf2ee; }
         .supply-table tbody tr:hover { background: #f8fbf9; }
         .supply-id { display: inline-flex; min-width: 32px; height: 30px; align-items: center; justify-content: center; border-radius: 8px; background: #f0f4f1; color: #52665a; font-weight: 700; font-size: .8rem; }
         .supply-name-icon { width: 36px; height: 36px; border-radius: 10px; background: #eaf6ee; color: #16834a; display: inline-grid; place-items: center; flex-shrink: 0; }
@@ -129,7 +129,7 @@ export default function Display() {
         .supply-in-stock { background: #eaf6ee; color: #16834a; }
         .supply-action { border-radius: 8px; font-weight: 700; }
         .supply-reminder { border: 1px solid #cfe4d5; background: #f1f8f3; color: #2f6843; border-radius: 14px; }
-        @media (max-width: 575.98px) { .supply-card-header { padding: 15px; } .supply-table tbody td { padding: 12px; } }
+        @media (max-width: 575.98px) { .display-page { padding-left: 14px !important; padding-right: 14px !important; } .supply-card-header { padding: 15px; } .supply-table tbody td { padding: 14px; } }
       `}</style>
 
       <header className="mb-4">
