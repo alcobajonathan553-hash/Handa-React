@@ -294,6 +294,45 @@ app.delete('/api/supplies/:id', requireFirebaseUser, requireAdmin, asyncRoute(as
   res.json({ id });
 }));
 
+
+app.get('/api/notifications', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    'SELECT id, title, message, is_read AS isRead, created_at AS createdAt FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
+    [req.mysqlUserId]
+  );
+  res.json(rows.map((row) => ({ ...row, isRead: Boolean(row.isRead) })));
+}));
+
+app.patch('/api/notifications/:id/read', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const [result] = await pool.execute(
+    'UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?',
+    [id, req.mysqlUserId]
+  );
+  if (!result.affectedRows) return res.status(404).json({ message: 'Notification not found.' });
+  res.json({ id, isRead: true });
+}));
+
+app.get('/api/activity-logs', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    'SELECT id, action, description, created_at AS createdAt FROM activity_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
+    [req.mysqlUserId]
+  );
+  res.json(rows);
+}));
+
+app.post('/api/activity-logs', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const { action, description = '' } = req.body || {};
+  if (typeof action !== 'string' || !action.trim()) {
+    return res.status(400).json({ message: 'Activity action is required.' });
+  }
+  const [result] = await pool.execute(
+    'INSERT INTO activity_logs (user_id, action, description) VALUES (?, ?, ?)',
+    [req.mysqlUserId, action.trim(), String(description)]
+  );
+  res.status(201).json({ id: result.insertId });
+}));
+
 app.use((error, req, res, next) => {
   console.error('API error:', error);
   if (res.headersSent) return next(error);
