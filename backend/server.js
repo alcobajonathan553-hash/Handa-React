@@ -127,6 +127,129 @@ app.get('/api/profile', requireFirebaseUser, asyncRoute(async (req, res) => {
   res.json(rows[0]);
 }));
 
+
+async function requireProfileId(req, res, next) {
+  try {
+    const [rows] = await pool.execute('SELECT id FROM users WHERE firebase_uid = ? LIMIT 1', [req.firebaseUser.uid]);
+    if (!rows.length) return res.status(404).json({ message: 'User profile not found.' });
+    req.mysqlUserId = rows[0].id;
+    next();
+  } catch (error) { next(error); }
+}
+
+const defaultChecklist = [
+  'Ihanda ang Emergency Go-Bag',
+  'Mag-imbak ng sapat na tubig na inumin',
+  'Ayusin at itago ang mahahalagang dokumento',
+  'Alamin ang pinakamalapit na evacuation route',
+  'I-save ang mga emergency contacts',
+  'I-check ang flashlight at extra batteries',
+  'I-secure ang mabibigat na kasangkapan',
+  'Pag-usapan ang family meeting point',
+  'Suriin ang imbak na pagkain at tubig',
+  'Tignan ang mga hotline numbers sa inyong lugar'
+];
+
+app.get('/api/checklists', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  let [rows] = await pool.execute('SELECT id, task_text AS text, completed AS done FROM checklists WHERE user_id = ? ORDER BY id', [req.mysqlUserId]);
+  if (!rows.length) {
+    for (const task of defaultChecklist) {
+      await pool.execute('INSERT INTO checklists (user_id, task_text, completed) VALUES (?, ?, 0)', [req.mysqlUserId, task]);
+    }
+    [rows] = await pool.execute('SELECT id, task_text AS text, completed AS done FROM checklists WHERE user_id = ? ORDER BY id', [req.mysqlUserId]);
+  }
+  res.json(rows.map((row) => ({ ...row, done: Boolean(row.done) })));
+}));
+
+app.put('/api/checklists', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const tasks = req.body.tasks;
+  if (!Array.isArray(tasks) || tasks.length > 100 || tasks.some((task) => typeof task.text !== 'string' || !task.text.trim())) {
+    return res.status(400).json({ message: 'A valid checklist array with up to 100 tasks is required.' });
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.execute('DELETE FROM checklists WHERE user_id = ?', [req.mysqlUserId]);
+    for (const task of tasks) {
+      await connection.execute('INSERT INTO checklists (user_id, task_text, completed) VALUES (?, ?, ?)', [req.mysqlUserId, task.text.trim(), task.done ? 1 : 0]);
+    }
+    await connection.commit();
+    res.json({ message: 'Checklist saved.', count: tasks.length });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally { connection.release(); }
+}));
+
+app.get('/api/user-supplies', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute('SELECT id, name, quantity, status FROM user_supplies WHERE user_id = ? ORDER BY id', [req.mysqlUserId]);
+  res.json(rows);
+}));
+
+app.post('/api/user-supplies', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const { name, quantity = 1, status = 'Missing' } = req.body || {};
+  if (typeof name !== 'string' || !name.trim() || !Number.isInteger(Number(quantity)) || Number(quantity) < 0 || !['Ready', 'Check', 'Missing'].includes(status)) {
+    return res.status(400).json({ message: 'Valid supply name, quantity, and status are required.' });
+  }
+  const [result] = await pool.execute('INSERT INTO user_supplies (user_id, name, quantity, status) VALUES (?, ?, ?, ?)', [req.mysqlUserId, name.trim(), Number(quantity), status]);
+  res.status(201).json({ id: result.insertId, name: name.trim(), quantity: Number(quantity), status });
+}));
+
+app.put('/api/user-supplies/:id', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const { name, quantity, status } = req.body || {};
+  if (!Number.isInteger(id) || id < 1 || typeof name !== 'string' || !name.trim() || !Number.isInteger(Number(quantity)) || Number(quantity) < 0 || !['Ready', 'Check', 'Missing'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid personal supply details.' });
+  }
+  const [result] = await pool.execute('UPDATE user_supplies SET name = ?, quantity = ?, status = ? WHERE id = ? AND user_id = ?', [name.trim(), Number(quantity), status, id, req.mysqlUserId]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Supply not found.' });
+  res.json({ id, name: name.trim(), quantity: Number(quantity), status });
+}));
+
+app.delete('/api/user-supplies/:id', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const [result] = await pool.execute('DELETE FROM user_supplies WHERE id = ? AND user_id = ?', [id, req.mysqlUserId]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Supply not found.' });
+  res.json({ id });
+}));
+
+app.get('/api/evacuation-plan', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute('SELECT evacuation_center AS evacuationCenter, meeting_point AS meetingPoint, primary_route AS primaryRoute, backup_route AS backupRoute FROM evacuation_plans WHERE user_id = ? LIMIT 1', [req.mysqlUserId]);
+  res.json(rows[0] || { evacuationCenter: '', meetingPoint: '', primaryRoute: '', backupRoute: '' });
+}));
+
+app.put('/api/evacuation-plan', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const { evacuationCenter = '', meetingPoint = '', primaryRoute = '', backupRoute = '' } = req.body || {};
+  await pool.execute(
+    `INSERT INTO evacuation_plans (user_id, evacuation_center, meeting_point, primary_route, backup_route)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE evacuation_center = VALUES(evacuation_center), meeting_point = VALUES(meeting_point), primary_route = VALUES(primary_route), backup_route = VALUES(backup_route)`,
+    [req.mysqlUserId, evacuationCenter, meetingPoint, primaryRoute, backupRoute]
+  );
+  res.json({ message: 'Evacuation plan saved.' });
+}));
+
+app.get('/api/emergency-contacts', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute('SELECT id, name, phone, category FROM emergency_contacts WHERE user_id = ? ORDER BY id', [req.mysqlUserId]);
+  res.json(rows);
+}));
+
+app.post('/api/emergency-contacts', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const { name, phone, category = 'Family' } = req.body || {};
+  if (typeof name !== 'string' || !name.trim() || typeof phone !== 'string' || !phone.trim()) {
+    return res.status(400).json({ message: 'Contact name and phone are required.' });
+  }
+  const [result] = await pool.execute('INSERT INTO emergency_contacts (user_id, name, phone, category) VALUES (?, ?, ?, ?)', [req.mysqlUserId, name.trim(), phone.trim(), String(category).trim() || 'Family']);
+  res.status(201).json({ id: result.insertId, name: name.trim(), phone: phone.trim(), category });
+}));
+
+app.delete('/api/emergency-contacts/:id', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const [result] = await pool.execute('DELETE FROM emergency_contacts WHERE id = ? AND user_id = ?', [id, req.mysqlUserId]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Contact not found.' });
+  res.json({ id });
+}));
+
 app.get('/api/supplies', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
   const [rows] = await pool.execute(
     'SELECT id, name, category, quantity, status, created_at FROM supplies ORDER BY id DESC'
