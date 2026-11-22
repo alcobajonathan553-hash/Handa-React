@@ -24,27 +24,53 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+let firebaseInitError = null;
+
 function initializeFirebaseAdmin() {
-  if (admin.apps.length) return;
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-    return;
+  if (admin.apps.length) return true;
+
+  try {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    } else {
+      admin.initializeApp({ credential: admin.credential.applicationDefault() });
+    }
+
+    firebaseInitError = null;
+    console.log('Firebase Admin initialized.');
+    return true;
+  } catch (error) {
+    firebaseInitError = error;
+    console.error('Firebase Admin initialization failed:', error.message);
+    return false;
   }
-  admin.initializeApp({ credential: admin.credential.applicationDefault() });
 }
+
 initializeFirebaseAdmin();
 
 async function requireFirebaseUser(req, res, next) {
   const authorization = req.headers.authorization || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-  if (!token) return res.status(401).json({ message: 'Firebase sign-in is required.' });
+
+  if (!token) {
+    return res.status(401).json({ message: 'Firebase sign-in is required.' });
+  }
+
+  if (!admin.apps.length && !initializeFirebaseAdmin()) {
+    return res.status(503).json({
+      message: 'Firebase Admin is not configured. Add valid Firebase service-account credentials to backend/.env.'
+    });
+  }
+
   try {
     req.firebaseUser = await admin.auth().verifyIdToken(token);
     next();
   } catch (error) {
     console.error('Firebase token verification failed:', error.message);
-    return res.status(401).json({ message: 'Your session is invalid or expired. Please sign in again.' });
+    return res.status(401).json({
+      message: 'Your session is invalid or expired. Please sign in again.'
+    });
   }
 }
 
