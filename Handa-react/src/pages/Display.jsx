@@ -116,9 +116,9 @@ export default function Display() {
         .supply-stat { min-height: 104px; height: 100%; border: 1px solid var(--supply-border); border-radius: 14px; padding: 16px 18px; background: #fff; box-shadow: 0 4px 15px rgba(23,60,41,.035); }
         .supply-stat-label { color: #718076; font-size: .78rem; font-weight: 700; }
         .supply-stat-value { color: #203d2b; font-size: 1.55rem; font-weight: 800; line-height: 1.25; }
-        .supply-table { width: 100%; min-width: 900px; table-layout: auto; }
-        .supply-table thead th { padding: 18px 22px; background: #f0f7f2; color: #355342; border-bottom: 1px solid #dfeae2; font-size: .78rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; padding: 15px 17px; white-space: nowrap; }
-        .supply-table tbody td { padding: 20px 22px; vertical-align: middle; color: #405448; font-size: .88rem; border-color: #edf2ee; }
+        .supply-table { width: 100%; min-width: 0; table-layout: fixed; }\n        .supply-table th:nth-child(1), .supply-table td:nth-child(1) { width: 7%; }\n        .supply-table th:nth-child(2), .supply-table td:nth-child(2) { width: 23%; }\n        .supply-table th:nth-child(3), .supply-table td:nth-child(3) { width: 19%; }\n        .supply-table th:nth-child(4), .supply-table td:nth-child(4) { width: 10%; }\n        .supply-table th:nth-child(5), .supply-table td:nth-child(5) { width: 17%; }\n        .supply-table th:nth-child(6), .supply-table td:nth-child(6) { width: 24%; }\n        .supply-table th, .supply-table td { overflow-wrap: anywhere; }\n        .supply-table .supply-name-cell { min-width: 0; }\n        .supply-table .supply-name-cell span:last-child { min-width: 0; overflow-wrap: anywhere; }\n        .supply-table .supply-actions { display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap; }\n        .supply-table .supply-actions .btn { margin: 0 !important; padding: 5px 8px; font-size: .76rem; }
+        .supply-table thead th { padding: 14px 10px; background: #f0f7f2; color: #355342; border-bottom: 1px solid #dfeae2; font-size: .78rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; padding: 15px 17px; white-space: normal; }
+        .supply-table tbody td { padding: 16px 10px; vertical-align: middle; color: #405448; font-size: .88rem; border-color: #edf2ee; }
         .supply-table tbody tr:hover { background: #f8fbf9; }
         .supply-id { display: inline-flex; min-width: 32px; height: 30px; align-items: center; justify-content: center; border-radius: 8px; background: #f0f4f1; color: #52665a; font-weight: 700; font-size: .8rem; }
         .supply-name-icon { width: 36px; height: 36px; border-radius: 10px; background: #eaf6ee; color: #16834a; display: inline-grid; place-items: center; flex-shrink: 0; }
@@ -218,7 +218,7 @@ export default function Display() {
                 return (
                   <tr key={supply.id}>
                     <td><span className="supply-id">{supply.id}</span></td>
-                    <td><div className="d-flex align-items-center gap-2"><span className="supply-name-icon"><i className="bi bi-box-seam" /></span><span className="fw-bold text-dark">{supply.name}</span></div></td>
+                    <td><div className="d-flex align-items-center gap-2 supply-name-cell"><span className="supply-name-icon"><i className="bi bi-box-seam" /></span><span className="fw-bold text-dark">{supply.name}</span></div></td>
                     <td><span className="supply-category">{supply.category}</span></td>
                     <td><span className="supply-quantity">{supply.quantity}</span></td>
                     <td><span className={`supply-status ${isLowStock ? "supply-low-stock" : "supply-in-stock"}`}><i className={`bi ${isLowStock ? "bi-exclamation-circle-fill" : "bi-check-circle-fill"}`} />{status}</span></td>
