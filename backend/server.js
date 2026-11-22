@@ -228,16 +228,42 @@ app.put('/api/checklists', requireFirebaseUser, requireProfileId, asyncRoute(asy
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await connection.execute('DELETE FROM checklists WHERE user_id = ?', [req.mysqlUserId]);
+
+    const [existingRows] = await connection.execute(
+      'SELECT id FROM checklists WHERE user_id = ?',
+      [req.mysqlUserId]
+    );
+    const existingIds = new Set(existingRows.map((row) => String(row.id)));
+    const submittedIds = new Set();
+
     for (const task of tasks) {
-      await connection.execute('INSERT INTO checklists (user_id, task_text, completed) VALUES (?, ?, ?)', [req.mysqlUserId, task.text.trim(), task.done ? 1 : 0]);
+      const taskText = task.text.trim();
+      const taskDone = task.done ? 1 : 0;
+      const taskId = Number(task.id);
+
+      if (Number.isInteger(taskId) && taskId > 0 && existingIds.has(String(taskId))) {
+        await connection.execute(
+          'UPDATE checklists SET task_text = ?, completed = ? WHERE id = ? AND user_id = ?',
+          [taskText, taskDone, taskId, req.mysqlUserId]
+        );
+        submittedIds.add(String(taskId));
+      } else {
+        const [insertResult] = await connection.execute(
+          'INSERT INTO checklists (user_id, task_text, completed) VALUES (?, ?, ?)',
+          [req.mysqlUserId, taskText, taskDone]
+        );
+        submittedIds.add(String(insertResult.insertId));
+      }
     }
+
     await connection.commit();
-    res.json({ message: 'Checklist saved.', count: tasks.length });
+    res.json({ message: 'Checklist saved without replacing existing records.', count: tasks.length });
   } catch (error) {
     await connection.rollback();
     throw error;
-  } finally { connection.release(); }
+  } finally {
+    connection.release();
+  }
 }));
 
 app.get('/api/user-supplies', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
