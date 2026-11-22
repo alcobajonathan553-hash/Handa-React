@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { auth } from '../components/firebase.js';
 import DisasterDetail from './DisasterDetail';
 
 const disasterList = [
@@ -105,6 +106,22 @@ const readiness = [
   { name: 'Landslide', value: 40, icon: 'bi-triangle-fill' },
 ];
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+
+async function dashboardRequest(path, options = {}) {
+  if (!auth.currentUser) throw new Error('Please sign in again.');
+  const token = await auth.currentUser.getIdToken();
+  return fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+
 function SectionTitle({ icon, title, text, action, onAction }) {
   return (
     <div className="d-flex justify-content-between align-items-start gap-3 mb-3">
@@ -150,6 +167,62 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [search, setSearch] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
+  const [dashboardError, setDashboardError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadResidentData() {
+      try {
+        const [checklistResponse, suppliesResponse] = await Promise.all([
+          dashboardRequest('/api/checklists'),
+          dashboardRequest('/api/user-supplies')
+        ]);
+
+        if (!checklistResponse.ok || !suppliesResponse.ok) {
+          throw new Error('Hindi ma-load ang iyong saved records.');
+        }
+
+        const savedTasks = await checklistResponse.json();
+        let savedSupplies = await suppliesResponse.json();
+
+        if (!savedSupplies.length) {
+          const starterSupplies = [
+            { name: 'Tubig na Inumin', quantity: 1, status: 'Ready' },
+            { name: 'First Aid Kit', quantity: 1, status: 'Ready' },
+            { name: 'Flashlight', quantity: 1, status: 'Check' },
+            { name: 'MGA Baterya', quantity: 1, status: 'Missing' },
+            { name: 'Radyo', quantity: 1, status: 'Ready' }
+          ];
+
+          for (const supply of starterSupplies) {
+            const response = await dashboardRequest('/api/user-supplies', {
+              method: 'POST',
+              body: JSON.stringify(supply)
+            });
+            if (!response.ok) throw new Error('Hindi ma-save ang starter emergency kit.');
+          }
+
+          const refreshed = await dashboardRequest('/api/user-supplies');
+          savedSupplies = await refreshed.json();
+        }
+
+        if (active) {
+          setTasks(savedTasks);
+          setSupplies(savedSupplies.map((item, index) => ({
+            ...item,
+            icon: ['bi-droplet-fill', 'bi-bandaid-fill', 'bi-flashlight-fill', 'bi-battery-half', 'bi-broadcast-pin'][index % 5]
+          })));
+        }
+      } catch (error) {
+        console.error('Resident data loading failed:', error);
+        if (active) setDashboardError(error.message || 'Database connection failed.');
+      }
+    }
+
+    loadResidentData();
+    return () => { active = false; };
+  }, []);
 
   const completedTasks = tasks.filter((task) => task.done).length;
 
@@ -193,34 +266,49 @@ export default function Dashboard({ user, onLogout, isOnline }) {
     });
   };
 
-  const toggleTask = (id) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id
-          ? { ...task, done: !task.done }
-          : task
-      )
+  const toggleTask = async (id) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === id ? { ...task, done: !task.done } : task
     );
+    setTasks(updatedTasks);
+
+    try {
+      const response = await dashboardRequest('/api/checklists', {
+        method: 'PUT',
+        body: JSON.stringify({ tasks: updatedTasks })
+      });
+      if (!response.ok) throw new Error('Hindi na-save ang checklist.');
+    } catch (error) {
+      console.error(error);
+      setDashboardError(error.message);
+    }
   };
 
-  const cycleSupply = (id) => {
-    setSupplies((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
+  const cycleSupply = async (id) => {
+    const updatedSupplies = supplies.map((item) => {
+      if (item.id !== id) return item;
+      const next = item.status === 'Ready' ? 'Check' : item.status === 'Check' ? 'Missing' : 'Ready';
+      return { ...item, status: next };
+    });
+    setSupplies(updatedSupplies);
 
-        const next =
-          item.status === 'Ready'
-            ? 'Check'
-            : item.status === 'Check'
-            ? 'Missing'
-            : 'Ready';
+    const changedSupply = updatedSupplies.find((item) => item.id === id);
+    if (!changedSupply) return;
 
-        return {
-          ...item,
-          status: next,
-        };
-      })
-    );
+    try {
+      const response = await dashboardRequest(`/api/user-supplies/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: changedSupply.name,
+          quantity: changedSupply.quantity || 1,
+          status: changedSupply.status
+        })
+      });
+      if (!response.ok) throw new Error('Hindi na-save ang supply status.');
+    } catch (error) {
+      console.error(error);
+      setDashboardError(error.message);
+    }
   };
 
   if (selectedDisaster) {
@@ -352,6 +440,8 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               onCycleSupply={cycleSupply}
             />
           )}
+
+          {dashboardError && <div className="alert alert-warning mx-3" role="alert">{dashboardError}</div>}
 
           {activePage === 'evacuation' && <EvacuationPage />}
 
@@ -1058,110 +1148,110 @@ function SuppliesPage({ supplies, onCycleSupply }) {
 }
 
 function EvacuationPage() {
+  const [plan, setPlan] = useState({ evacuationCenter: '', meetingPoint: '', primaryRoute: '', backupRoute: '' });
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    dashboardRequest('/api/evacuation-plan')
+      .then((response) => response.json())
+      .then((data) => setPlan(data))
+      .catch((error) => setMessage(error.message));
+  }, []);
+
+  const updateField = (field, value) => setPlan((current) => ({ ...current, [field]: value }));
+
+  async function savePlan() {
+    try {
+      const response = await dashboardRequest('/api/evacuation-plan', {
+        method: 'PUT',
+        body: JSON.stringify(plan)
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Hindi na-save ang evacuation plan.');
+      setMessage('Matagumpay na na-save ang iyong evacuation plan.');
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
   return (
-    <PageShell
-      icon="bi-signpost-2-fill"
-      title="Evacuation Plan"
-      description="Maghanda ng simpleng plano para alam ng lahat ang pupuntahan."
-    >
+    <PageShell icon="bi-signpost-2-fill" title="Evacuation Plan" description="Maghanda ng simpleng plano para alam ng lahat ang pupuntahan.">
       <div className="panel page-panel">
         <div className="form-grid">
-          <div>
-            <label>Evacuation Center</label>
-
-            <input
-              className="form-control"
-              placeholder="Ilagay ang evacuation center"
-            />
-          </div>
-
-          <div>
-            <label>Family Meeting Point</label>
-
-            <input
-              className="form-control"
-              placeholder="Ilagay ang meeting point"
-            />
-          </div>
-
-          <div>
-            <label>Pangunahing Daanan (Primary Route)</label>
-
-            <input
-              className="form-control"
-              placeholder="Ilarawan ang pinakaligtas na daan"
-            />
-          </div>
-
-          <div>
-            <label>Alternatibong Daanan (Backup Route)</label>
-
-            <input
-              className="form-control"
-              placeholder="Ilarawan ang alternatibong daan"
-            />
-          </div>
+          <div><label>Evacuation Center</label><input className="form-control" placeholder="Ilagay ang evacuation center" value={plan.evacuationCenter || ''} onChange={(e) => updateField('evacuationCenter', e.target.value)} /></div>
+          <div><label>Family Meeting Point</label><input className="form-control" placeholder="Ilagay ang meeting point" value={plan.meetingPoint || ''} onChange={(e) => updateField('meetingPoint', e.target.value)} /></div>
+          <div><label>Pangunahing Daanan (Primary Route)</label><input className="form-control" placeholder="Ilarawan ang pinakaligtas na daan" value={plan.primaryRoute || ''} onChange={(e) => updateField('primaryRoute', e.target.value)} /></div>
+          <div><label>Alternatibong Daanan (Backup Route)</label><input className="form-control" placeholder="Ilarawan ang alternatibong daan" value={plan.backupRoute || ''} onChange={(e) => updateField('backupRoute', e.target.value)} /></div>
         </div>
-
-        <div className="plan-map-large">
-          <i className="bi bi-map" />
-
-          <div>
-            <strong>Map / Route Area</strong>
-
-            <span>
-              Pwedeng i-integrate ang totoong map service dito pagdating
-              ng panahon.
-            </span>
-          </div>
-        </div>
-
-        <button
-          className="btn btn-handa"
-          onClick={() =>
-            alert(
-              'Naka-save na ang evacuation plan sa demo na ito.'
-            )
-          }
-        >
-          I-save ang Evacuation Plan
-        </button>
+        <div className="plan-map-large"><i className="bi bi-map" /><div><strong>Map / Route Area</strong><span>Pwedeng i-integrate ang totoong map service dito pagdating ng panahon.</span></div></div>
+        <button className="btn btn-handa" onClick={savePlan}>I-save ang Evacuation Plan</button>
+        {message && <p className="small mt-3 mb-0 text-secondary">{message}</p>}
       </div>
     </PageShell>
   );
 }
 
 function ContactsPage() {
-  const contactData = [
-    ['bi-shield-fill', 'PNP Mansalay', '09XXXXXXXXX'],
-    ['bi-fire', 'BFP Mansalay', '09XXXXXXXXX'],
-    ['bi-plus-circle-fill', 'Mansalay Medicare', '09XXXXXXXXX'],
-    ['bi-person-fill', 'Family Contact', 'Magdagdag ng numero'],
-    ['bi-building', 'LGU Mansalay', '09XXXXXXXXX'],
-    ['bi-telephone', 'Iba pang Contact', 'Magdagdag ng numero'],
-  ];
+  const [contacts, setContacts] = useState([]);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [category, setCategory] = useState('Family');
+  const [message, setMessage] = useState('');
+
+  async function loadContacts() {
+    try {
+      const response = await dashboardRequest('/api/emergency-contacts');
+      if (!response.ok) throw new Error('Hindi ma-load ang emergency contacts.');
+      setContacts(await response.json());
+    } catch (error) { setMessage(error.message); }
+  }
+
+  useEffect(() => { loadContacts(); }, []);
+
+  async function addContact(event) {
+    event.preventDefault();
+    try {
+      const response = await dashboardRequest('/api/emergency-contacts', {
+        method: 'POST',
+        body: JSON.stringify({ name, phone, category })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Hindi naidagdag ang contact.');
+      setName('');
+      setPhone('');
+      setMessage('Naidagdag ang emergency contact.');
+      await loadContacts();
+    } catch (error) { setMessage(error.message); }
+  }
+
+  async function deleteContact(id) {
+    try {
+      const response = await dashboardRequest(`/api/emergency-contacts/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Hindi mabura ang contact.');
+      await loadContacts();
+    } catch (error) { setMessage(error.message); }
+  }
 
   return (
-    <PageShell
-      icon="bi-telephone-fill"
-      title="Emergency Contacts"
-      description="Itago ang mahahalagang numero na kailangan sa oras ng sakuna."
-    >
+    <PageShell icon="bi-telephone-fill" title="Emergency Contacts" description="Itago ang mahahalagang numero na kailangan sa oras ng sakuna.">
+      <div className="panel page-panel mb-4">
+        <form className="row g-3" onSubmit={addContact}>
+          <div className="col-md-4"><label className="form-label">Contact Name</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} required /></div>
+          <div className="col-md-4"><label className="form-label">Phone Number</label><input className="form-control" value={phone} onChange={(e) => setPhone(e.target.value)} required /></div>
+          <div className="col-md-2"><label className="form-label">Category</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option>Family</option><option>Medical</option><option>Emergency</option><option>Other</option></select></div>
+          <div className="col-md-2 d-flex align-items-end"><button className="btn btn-handa w-100" type="submit">Add Contact</button></div>
+        </form>
+        {message && <p className="small text-secondary mt-3 mb-0">{message}</p>}
+      </div>
       <div className="contact-page-grid">
-        {contactData.map(([icon, name, number]) => (
-          <div className="panel contact-card" key={name}>
-            <i className={`bi ${icon}`} />
-
-            <div>
-              <strong>{name}</strong>
-              <span>{number}</span>
-            </div>
-
-            <button className="btn btn-sm btn-outline-handa">
-              Edit
-            </button>
+        {contacts.map((contact) => (
+          <div className="panel contact-card" key={contact.id}>
+            <i className="bi bi-person-lines-fill" />
+            <div><strong>{contact.name}</strong><span>{contact.phone}</span><small>{contact.category}</small></div>
+            <button className="btn btn-sm btn-outline-danger" onClick={() => deleteContact(contact.id)}>Delete</button>
           </div>
         ))}
+        {contacts.length === 0 && <p className="text-secondary">Wala pang naka-save na emergency contacts.</p>}
       </div>
     </PageShell>
   );
