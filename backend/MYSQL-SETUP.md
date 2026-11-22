@@ -48,6 +48,14 @@ Render cannot connect to XAMPP running only on your PC. Use a hosted MySQL provi
 - GET /api/health: checks API and MySQL.
 - POST /api/auth/profile: creates or refreshes the authenticated user's MySQL profile.
 - GET /api/profile: returns the current user's profile.
+- GET, PUT /api/checklists: the signed-in resident's checklist.
+- GET, POST, PUT, DELETE /api/user-supplies: the signed-in resident's personal emergency kit.
+- GET, PUT /api/evacuation-plan: the signed-in resident's evacuation plan.
+- GET, POST, DELETE /api/emergency-contacts: the signed-in resident's contacts.
+- GET /api/notifications and PATCH /api/notifications/:id/read: the signed-in resident's notifications.
+- GET, POST /api/activity-logs: the signed-in resident's activity history.
 - GET, POST, PUT, DELETE /api/supplies: administrator-only barangay inventory.
+
+The React dashboard now loads and saves checklist, personal emergency supplies, evacuation plan, and emergency contacts through the authenticated API. Notification and activity-log endpoints are available for the next UI integration step.
 
 All endpoints except health require Authorization: Bearer <Firebase ID token>. The backend verifies the token and uses its UID; admin permission is read from MySQL users.role.
