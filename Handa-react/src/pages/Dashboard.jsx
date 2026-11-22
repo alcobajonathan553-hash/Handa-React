@@ -256,17 +256,44 @@ export default function Dashboard({ user, onLogout, isOnline }) {
     return () => { active = false; };
   }, []);
 
+  async function refreshActivities() {
+    try {
+      const response = await dashboardRequest('/api/activity-logs');
+      if (response.ok) setActivities(await response.json());
+    } catch (error) {
+      console.error('Activity logs could not be loaded:', error);
+    }
+  }
+
   async function recordActivity(action, description) {
     try {
       const response = await dashboardRequest('/api/activity-logs', {
         method: 'POST',
         body: JSON.stringify({ action, description })
       });
-      if (!response.ok) return;
-      const logsResponse = await dashboardRequest('/api/activity-logs');
-      if (logsResponse.ok) setActivities(await logsResponse.json());
+      if (response.ok) await refreshActivities();
     } catch (error) {
       console.error('Activity log could not be saved:', error);
+    }
+  }
+
+  async function addPersonalSupply(name) {
+    const cleanName = name.trim();
+    if (!cleanName) return false;
+
+    try {
+      const response = await dashboardRequest('/api/user-supplies', {
+        method: 'POST',
+        body: JSON.stringify({ name: cleanName, quantity: 1, status: 'Missing' })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Hindi maidagdag ang supply.');
+      setSupplies((current) => [...current, { ...result, icon: 'bi-box-seam' }]);
+      await recordActivity('Emergency kit item added', `Added ${cleanName} to the emergency kit.`);
+      return true;
+    } catch (error) {
+      setDashboardError(error.message);
+      return false;
     }
   }
 
@@ -472,7 +499,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
             </div>
           </div>
           {notificationOpen && (
-            <div className="notification-dropdown shadow rounded-3 bg-white p-3" style={{ position: 'absolute', right: 24, top: 76, zIndex: 20, width: 'min(360px, calc(100vw - 32px)', maxHeight: 360, overflowY: 'auto' }}>
+            <div className="notification-dropdown shadow rounded-3 bg-white p-3" style={{ position: 'absolute', right: 24, top: 76, zIndex: 20, width: 'min(360px, calc(100vw - 32px))', maxHeight: 360, overflowY: 'auto' }}>
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <strong>Notifications</strong>
                 <button className="btn btn-sm btn-link text-success p-0" onClick={() => setNotificationOpen(false)}>Close</button>
@@ -526,14 +553,25 @@ export default function Dashboard({ user, onLogout, isOnline }) {
             <SuppliesPage
               supplies={supplies}
               onCycleSupply={cycleSupply}
+              onAddSupply={addPersonalSupply}
             />
           )}
 
           {dashboardError && <div className="alert alert-warning mx-3" role="alert">{dashboardError}</div>}
 
-          {activePage === 'evacuation' && <EvacuationPage />}
+          {activePage === 'evacuation' && (
+            <EvacuationPage
+              onPlanSaved={setEvacuationPlan}
+              onActivityAdded={refreshActivities}
+            />
+          )}
 
-          {activePage === 'contacts' && <ContactsPage />}
+          {activePage === 'contacts' && (
+            <ContactsPage
+              onContactsChanged={setContacts}
+              onActivityAdded={refreshActivities}
+            />
+          )}
 
           {activePage === 'guides' && (
             <GuidesPage
@@ -1146,7 +1184,21 @@ function ChecklistPage({ tasks, onToggleTask, percent }) {
   );
 }
 
-function SuppliesPage({ supplies, onCycleSupply }) {
+function SuppliesPage({ supplies, onCycleSupply, onAddSupply }) {
+  const [newSupplyName, setNewSupplyName] = useState('');
+  const [message, setMessage] = useState('');
+
+  async function handleAddSupply(event) {
+    event.preventDefault();
+    const saved = await onAddSupply(newSupplyName);
+    if (saved) {
+      setNewSupplyName('');
+      setMessage('Naidagdag ang supply sa iyong emergency kit.');
+    } else {
+      setMessage('Hindi naidagdag ang supply. Pakitingnan ang error message.');
+    }
+  }
+
   return (
     <PageShell
       icon="bi-backpack4"
@@ -1154,28 +1206,18 @@ function SuppliesPage({ supplies, onCycleSupply }) {
       description="I-monitor ang laman at status ng inyong emergency kit."
     >
       <div className="panel page-panel">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <h2 className="h5 fw-bold mb-1">
-              Aking Emergency Kit
-            </h2>
-
-            <p className="text-secondary small mb-0">
-              I-click ang item para palitan ang status nito sa demo na
-              ito.
-            </p>
-          </div>
-
-          <button
-            className="btn btn-handa"
-            onClick={() =>
-              alert(
-                'Pwedeng i-connect dito ang Add Supply modal/form.'
-              )
-            }
-          >
-            + Magdagdag ng Supply
-          </button>
+        <div className="mb-4">
+          <h2 className="h5 fw-bold mb-1">Aking Emergency Kit</h2>
+          <p className="text-secondary small mb-3">I-update ang status o magdagdag ng item sa iyong personal emergency kit.</p>
+          <form className="row g-2" onSubmit={handleAddSupply}>
+            <div className="col-12 col-md-8">
+              <input className="form-control" value={newSupplyName} onChange={(event) => setNewSupplyName(event.target.value)} placeholder="Pangalan ng bagong supply" maxLength="150" required />
+            </div>
+            <div className="col-12 col-md-4 d-grid">
+              <button className="btn btn-handa" type="submit">+ Magdagdag ng Supply</button>
+            </div>
+          </form>
+          {message && <p className="small text-secondary mt-2 mb-0">{message}</p>}
         </div>
 
         <div className="supply-table">
@@ -1203,7 +1245,7 @@ function SuppliesPage({ supplies, onCycleSupply }) {
   );
 }
 
-function EvacuationPage() {
+function EvacuationPage({ onPlanSaved, onActivityAdded }) {
   const [plan, setPlan] = useState({ evacuationCenter: '', meetingPoint: '', primaryRoute: '', backupRoute: '' });
   const [message, setMessage] = useState('');
 
@@ -1225,10 +1267,12 @@ function EvacuationPage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Hindi na-save ang evacuation plan.');
       setMessage('Matagumpay na na-save ang iyong evacuation plan.');
+      if (onPlanSaved) onPlanSaved(plan);
       await dashboardRequest('/api/activity-logs', {
         method: 'POST',
         body: JSON.stringify({ action: 'Evacuation plan updated', description: 'Updated the family evacuation plan.' })
       });
+      if (onActivityAdded) await onActivityAdded();
     } catch (error) {
       setMessage(error.message);
     }
@@ -1251,7 +1295,7 @@ function EvacuationPage() {
   );
 }
 
-function ContactsPage() {
+function ContactsPage({ onContactsChanged, onActivityAdded }) {
   const [contacts, setContacts] = useState([]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -1262,7 +1306,9 @@ function ContactsPage() {
     try {
       const response = await dashboardRequest('/api/emergency-contacts');
       if (!response.ok) throw new Error('Hindi ma-load ang emergency contacts.');
-      setContacts(await response.json());
+      const savedContacts = await response.json();
+      setContacts(savedContacts);
+      if (onContactsChanged) onContactsChanged(savedContacts);
     } catch (error) { setMessage(error.message); }
   }
 
@@ -1284,6 +1330,7 @@ function ContactsPage() {
         method: 'POST',
         body: JSON.stringify({ action: 'Emergency contact added', description: `Added emergency contact: ${name.trim()}` })
       });
+      if (onActivityAdded) await onActivityAdded();
       await loadContacts();
     } catch (error) { setMessage(error.message); }
   }
@@ -1296,6 +1343,7 @@ function ContactsPage() {
         method: 'POST',
         body: JSON.stringify({ action: 'Emergency contact removed', description: `Removed emergency contact ID ${id}` })
       });
+      if (onActivityAdded) await onActivityAdded();
       await loadContacts();
     } catch (error) { setMessage(error.message); }
   }
