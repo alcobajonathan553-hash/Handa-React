@@ -119,8 +119,40 @@ function validateSupply(req, res, next) {
 }
 
 app.get('/api/health', asyncRoute(async (req, res) => {
-  await pool.query('SELECT 1');
-  res.json({ status: 'ok', service: 'handa-api', database: 'connected' });
+  const [databaseRows] = await pool.query('SELECT DATABASE() AS databaseName');
+  const databaseName = databaseRows[0]?.databaseName || null;
+
+  const requiredTables = [
+    'users',
+    'checklists',
+    'user_supplies',
+    'evacuation_plans',
+    'emergency_contacts',
+    'supplies',
+    'notifications',
+    'activity_logs'
+  ];
+
+  const [tableRows] = await pool.execute(
+    'SELECT TABLE_NAME AS tableName FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?',
+    [databaseName]
+  );
+
+  const existingTables = new Set(tableRows.map((row) => row.tableName));
+  const missingTables = requiredTables.filter((table) => !existingTables.has(table));
+
+  res.status(missingTables.length ? 503 : 200).json({
+    status: missingTables.length ? 'error' : 'ok',
+    service: 'handa-api',
+    database: missingTables.length ? 'incomplete' : 'connected',
+    databaseName,
+    tables: {
+      required: requiredTables.length,
+      found: requiredTables.length - missingTables.length,
+      missing: missingTables
+    },
+    firebaseAdmin: admin.apps.length ? 'initialized' : 'not-configured'
+  });
 }));
 
 app.post('/api/auth/profile', requireFirebaseUser, asyncRoute(async (req, res) => {
