@@ -1423,7 +1423,7 @@ function SuppliesPage({ lguKit = [], sharedSupplies, sharedSuppliesLoading, supp
         <div className="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
           <div>
             <h2 className="h5 fw-bold mb-1"><i className="bi bi-building-check me-2 text-success" />LGU Emergency Supply Inventory</h2>
-            <p className="text-secondary small mb-0">Mga supply na inilagay ng administrator. Awtomatikong nagre-refresh kada 15 segundo.</p>
+            <p className="text-secondary small mb-0">LGU Emergency Supply Inventory</p>
           </div>
           <span className="badge text-bg-success">{sharedSupplies.length} items</span>
         </div>
