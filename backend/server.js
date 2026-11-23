@@ -149,7 +149,11 @@ app.get('/api/health', asyncRoute(async (req, res) => {
     'emergency_contacts',
     'supplies',
     'notifications',
-    'activity_logs'
+    'activity_logs',
+    'public_evacuation_centers',
+    'public_emergency_contacts',
+    'disaster_guides',
+    'announcements'
   ];
 
   const [tableRows] = await pool.execute(
