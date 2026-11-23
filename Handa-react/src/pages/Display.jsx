@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { auth } from "../components/firebase.js";
 
-export default function Display() {
+export default function Display({ onLogout }) {
   const [supplies, setSupplies] = useState([]);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
@@ -174,14 +174,19 @@ export default function Display() {
       `}</style>
 
       <header className="mb-4">
-        <div className="d-flex align-items-center gap-3">
-          <div className="rounded-4 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 54, height: 54, background: "#eaf6ee", color: "#16834a", fontSize: "1.4rem" }}>
-            <i className="bi bi-box-seam" />
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div className="d-flex align-items-center gap-3">
+            <div className="rounded-4 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 54, height: 54, background: "#eaf6ee", color: "#16834a", fontSize: "1.4rem" }}>
+              <i className="bi bi-box-seam" />
+            </div>
+            <div>
+              <h2 className="supply-page-title mb-1">Emergency Supplies</h2>
+              <p className="supply-page-subtitle mb-0">Manage and monitor your emergency inventory.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="supply-page-title mb-1">Emergency Supplies</h2>
-            <p className="supply-page-subtitle mb-0">Manage and monitor your emergency inventory.</p>
-          </div>
+          <button type="button" className="btn btn-outline-danger rounded-3 fw-semibold px-3 py-2" onClick={onLogout}>
+            <i className="bi bi-box-arrow-right me-2" />Logout
+          </button>
         </div>
       </header>
 
