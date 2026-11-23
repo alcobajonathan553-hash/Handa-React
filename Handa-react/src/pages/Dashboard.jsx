@@ -193,6 +193,34 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
+  const [readinessScores, setReadinessScores] = useState(readiness);
+
+
+  useEffect(() => {
+    let active = true;
+    async function loadReadinessScores() {
+      try {
+        const response = await dashboardRequest('/api/disaster-assessments');
+        if (!response.ok) return;
+        const records = await response.json();
+        const latest = {};
+        records.forEach((record) => {
+          if (latest[record.disasterKey] === undefined) latest[record.disasterKey] = Number(record.score);
+        });
+        const keys = ['bagyo', 'baha', 'lindol', 'sunog', 'kuryente', 'bulkan', 'landslide', 'tsunami'];
+        if (active) {
+          setReadinessScores(readiness.map((item, index) => ({
+            ...item,
+            value: latest[keys[index]] === undefined ? item.value : latest[keys[index]]
+          })));
+        }
+      } catch (error) {
+        console.error('Disaster readiness scores could not be loaded:', error);
+      }
+    }
+    loadReadinessScores();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const clockId = window.setInterval(() => setCurrentDateTime(new Date()), 1000);
@@ -657,7 +685,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               supplies={supplies}
               readySupplies={readySupplies}
               tasks={tasks}
-              readiness={readiness}
+              readiness={readinessScores}
               onOpenReadiness={() => navigate('readiness')}
               navigate={navigate}
               onToggleTask={toggleTask}
@@ -709,7 +737,10 @@ export default function Dashboard({ user, onLogout, isOnline }) {
           )}
 
           {activePage === 'readiness' && (
-            <DisasterReadiness onSelectGuide={(id) => {
+            <DisasterReadiness onAssessmentSaved={(record) => {
+              const keys = ['bagyo', 'baha', 'lindol', 'sunog', 'kuryente', 'bulkan', 'landslide', 'tsunami'];
+              setReadinessScores((current) => current.map((item, index) => keys[index] === record.disasterKey ? { ...item, value: Number(record.score) } : item));
+            }} onSelectGuide={(id) => {
               const guide = disasterList.find((item) => item.id === id);
               if (guide) setSelectedDisaster(guide);
             }} />
