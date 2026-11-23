@@ -933,7 +933,7 @@ function DashboardHome({
 
           <div className="supply-progress">
             <strong>
-              {sharedSupplies.filter((item) => item.status !== 'Low Stock').length} / {sharedSupplies.length} LGU supplies available
+              {sharedSupplies.filter((item) => Number(item.quantity) > 0).length} / {sharedSupplies.length} LGU supplies in stock
             </strong>
 
             <div className="progress">
@@ -941,7 +941,7 @@ function DashboardHome({
                 className="progress-bar"
                 style={{
                   width: `${sharedSupplies.length
-                    ? Math.max(15, (sharedSupplies.filter((item) => item.status !== 'Low Stock').length / sharedSupplies.length) * 100)
+                    ? Math.max(15, (sharedSupplies.filter((item) => Number(item.quantity) > 0).length / sharedSupplies.length) * 100)
                     : 0}%`,
                 }}
               />
@@ -956,15 +956,15 @@ function DashboardHome({
             ) : sharedSupplies.length === 0 ? (
               <p className="text-secondary small py-3 mb-0">Wala pang emergency supplies na inilalagay ang administrator.</p>
             ) : (
-              sharedSupplies.slice(0, 6).map((item) => (
+              sharedSupplies.map((item) => (
                 <div className="supply-row" key={item.id}>
                   <i className="bi bi-box-seam" />
                   <span className="flex-grow-1">
                     {item.name}
-                    <small className="d-block text-secondary">{item.category} · Qty: {item.quantity}</small>
+                    <small className="d-block text-secondary">{item.category} · Qty: {Number(item.quantity)}</small>
                   </span>
-                  <em className={`badge-status ${item.status === 'Low Stock' ? 'check' : 'ready'}`}>
-                    {item.status === 'Low Stock' ? 'Check' : 'Available'}
+                  <em className={`badge-status ${Number(item.quantity) <= 0 ? 'missing' : Number(item.quantity) <= 15 ? 'check' : 'ready'}`}>
+                    {Number(item.quantity) <= 0 ? 'Out of Stock' : Number(item.quantity) <= 15 ? 'Low Stock · Check' : 'Available'}
                   </em>
                 </div>
               ))
