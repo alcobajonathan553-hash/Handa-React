@@ -1576,6 +1576,9 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('Family');
+  const [relationship, setRelationship] = useState('');
+  const [notes, setNotes] = useState('');
+  const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [message, setMessage] = useState('');
@@ -1594,17 +1597,32 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
   async function addContact(event) {
     event.preventDefault();
     try {
-      const response = await dashboardRequest('/api/emergency-contacts', { method: 'POST', body: JSON.stringify({ name, phone, category }) });
+      const payload = { name: name.trim(), phone: phone.trim(), category, relationship: relationship.trim(), notes: notes.trim() };
+      const response = await dashboardRequest(editingId ? '/api/emergency-contacts/' + editingId : '/api/emergency-contacts', { method: editingId ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Hindi naidagdag ang contact.');
       const addedName = name.trim();
-      setName(''); setPhone(''); setMessage('Naidagdag ang emergency contact.');
-      await dashboardRequest('/api/activity-logs', { method: 'POST', body: JSON.stringify({ action: 'Emergency contact added', description: 'Added emergency contact: ' + addedName }) });
+      setName(''); setPhone(''); setRelationship(''); setNotes(''); setEditingId(null); setMessage(editingId ? 'Na-update ang emergency contact.' : 'Naidagdag ang emergency contact.');
+      await dashboardRequest('/api/activity-logs', { method: 'POST', body: JSON.stringify({ action: editingId ? 'Emergency contact updated' : 'Emergency contact added', description: (editingId ? 'Updated emergency contact: ' : 'Added emergency contact: ') + addedName }) });
       if (onActivityAdded) await onActivityAdded();
       await loadContacts();
     } catch (error) { setMessage(error.message); }
   }
 
+  function editContact(contact) {
+    setEditingId(contact.id); setName(contact.name || ''); setPhone(contact.phone || '');
+    setCategory(contact.category || 'Family'); setRelationship(contact.relationship || ''); setNotes(contact.notes || '');
+    setMessage('Editing contact: ' + contact.name); window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function makePrimary(id) {
+    try {
+      const response = await dashboardRequest('/api/emergency-contacts/' + id + '/primary', { method: 'PATCH' });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || 'Hindi ma-set ang primary contact.');
+      setMessage('Na-set ang primary emergency contact.'); await loadContacts();
+    } catch (error) { setMessage(error.message); }
+  }
   async function deleteContact(id) {
     if (!window.confirm('Sigurado ka bang buburahin ang contact na ito?')) return;
     try {
@@ -1618,7 +1636,7 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
 
   const filteredContacts = contacts.filter((contact) =>
     (filter === 'All' || contact.category === filter) &&
-    (String(contact.name + ' ' + contact.phone + ' ' + contact.category).toLowerCase().includes(search.trim().toLowerCase()))
+    (String(contact.name + ' ' + contact.phone + ' ' + contact.category + ' ' + (contact.relationship || '')).toLowerCase().includes(search.trim().toLowerCase()))
   );
 
   return (
@@ -1629,7 +1647,9 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
           <div className="col-md-4"><label className="form-label">Contact Name</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength="100" required placeholder="Hal. Juan Dela Cruz" /></div>
           <div className="col-md-4"><label className="form-label">Phone Number</label><input className="form-control" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength="30" required placeholder="09XX XXX XXXX" /></div>
           <div className="col-md-2"><label className="form-label">Category</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option>Family</option><option>Medical</option><option>Emergency</option><option>Other</option></select></div>
-          <div className="col-md-2 d-flex align-items-end"><button className="btn btn-handa w-100" type="submit"><i className="bi bi-person-plus-fill me-1" />Add</button></div>
+          <div className="col-md-4"><label className="form-label">Relationship</label><input className="form-control" value={relationship} onChange={(e) => setRelationship(e.target.value)} maxLength="80" placeholder="Hal. Mother, Neighbor, Doctor" /></div>
+          <div className="col-md-8"><label className="form-label">Notes / Special Instructions</label><input className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength="500" placeholder="Important reminders..." /></div>
+          <div className="col-12 d-flex gap-2"><button className="btn btn-handa" type="submit"><i className="bi bi-person-plus-fill me-1" />{editingId ? 'Save Changes' : 'Add Contact'}</button>{editingId && <button className="btn btn-outline-secondary" type="button" onClick={() => { setEditingId(null); setName(''); setPhone(''); setCategory('Family'); setRelationship(''); setNotes(''); }}>Cancel Edit</button>}</div>
         </form>
         {message && <p className="small text-secondary mt-3 mb-0" role="status">{message}</p>}
       </div>
@@ -1645,12 +1665,14 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
           <div className="panel contact-card p-3" key={contact.id}>
             <div className="d-flex align-items-center gap-3 w-100">
               <div className="rounded-circle bg-success-subtle text-success p-3"><i className="bi bi-person-lines-fill fs-5" /></div>
-              <div className="flex-grow-1 min-w-0"><strong className="d-block text-break">{contact.name}</strong><span className="d-block">{contact.phone}</span><small className="text-secondary">{contact.category}</small></div>
+              <div className="flex-grow-1 min-w-0"><div className="d-flex flex-wrap align-items-center gap-2"><strong className="text-break">{contact.name}</strong>{contact.isPrimary && <span className="badge text-bg-warning"><i className="bi bi-star-fill me-1" />Primary</span>}</div><span className="d-block">{contact.phone}</span><small className="text-secondary">{contact.relationship ? contact.relationship + ' · ' : ''}{contact.category}</small>{contact.notes && <p className="small text-secondary mt-2 mb-0">{contact.notes}</p>}</div>
             </div>
             <div className="d-flex flex-wrap gap-2 mt-3">
               <a className="btn btn-sm btn-success" href={'tel:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-telephone-fill me-1" />Call</a>
               <a className="btn btn-sm btn-outline-success" href={'sms:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-chat-dots-fill me-1" />SMS</a>
               <button className="btn btn-sm btn-outline-secondary" onClick={() => { navigator.clipboard?.writeText(contact.phone); setMessage('Nakopya ang phone number.'); }}><i className="bi bi-copy me-1" />Copy</button>
+              {!contact.isPrimary && <button className="btn btn-sm btn-outline-warning" onClick={() => makePrimary(contact.id)}><i className="bi bi-star me-1" />Set Primary</button>}
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => editContact(contact)}><i className="bi bi-pencil me-1" />Edit</button>
               <button className="btn btn-sm btn-outline-danger" onClick={() => deleteContact(contact.id)}><i className="bi bi-trash me-1" />Delete</button>
             </div>
           </div>
