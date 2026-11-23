@@ -1641,33 +1641,36 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
 
   return (
     <PageShell icon="bi-telephone-fill" title="Mga Emergency Contact" description="I-save ang mahahalagang numero ng pamilya, kaibigan, at mga taong puwedeng tawagan kapag may sakuna o emergency.">
-      <div className="panel page-panel mb-4">
-        <h3 className="h5 fw-bold mb-3">Magdagdag ng Emergency Contact</h3>
-        <form className="row g-3" onSubmit={addContact}>
-          <div className="col-md-4"><label className="form-label">Pangalan ng Contact</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength="100" required placeholder="Hal. Juan Dela Cruz" /></div>
-          <div className="col-md-4"><label className="form-label">Numero ng Telepono</label><input className="form-control" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength="30" required placeholder="09XX XXX XXXX" /></div>
-          <div className="col-md-2"><label className="form-label">Category</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="Family">Pamilya</option><option value="Medical">Medikal</option><option value="Emergency">Emergency</option><option value="Other">Iba pa</option></select></div>
+      <div className="panel page-panel mb-4 emergency-form-panel">
+        <div className="emergency-section-heading">
+          <div className="emergency-heading-icon"><i className="bi bi-person-plus-fill" /></div>
+          <div><h3 className="h5 fw-bold mb-1">{'{'}editingId ? 'I-edit ang Emergency Contact' : 'Magdagdag ng Emergency Contact'{'}'}</h3><p className="mb-0">Ilagay ang detalye para mabilis mo silang matawagan kung kinakailangan.</p></div>
+        </div>
+        <form className="row g-3 emergency-contact-form" onSubmit={addContact}>
+          <div className="col-md-6"><label className="form-label">Pangalan ng Contact</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength="100" required placeholder="Hal. Juan Dela Cruz" /></div>
+          <div className="col-md-6"><label className="form-label">Numero ng Telepono</label><input className="form-control" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength="30" required placeholder="09XX XXX XXXX" /></div>
+          <div className="col-md-4"><label className="form-label">Kategorya</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="Family">Pamilya</option><option value="Medical">Medikal</option><option value="Emergency">Emergency</option><option value="Other">Iba pa</option></select></div>
           <div className="col-md-4"><label className="form-label">Ugnayan sa Contact</label><input className="form-control" value={relationship} onChange={(e) => setRelationship(e.target.value)} maxLength="80" placeholder="Hal. Anak, kapatid, kapitbahay, doktor" /></div>
           <div className="col-md-8"><label className="form-label">Mga Paalala / Mahalagang Tagubilin</label><input className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength="500" placeholder="Hal. may allergy, espesyal na pangangailangan, o ibang dapat tandaan" /></div>
-          <div className="col-12 d-flex gap-2"><button className="btn btn-handa" type="submit"><i className="bi bi-person-plus-fill me-1" />{editingId ? 'I-save ang Pagbabago' : 'Idagdag ang Contact'}</button>{editingId && <button className="btn btn-outline-secondary" type="button" onClick={() => { setEditingId(null); setName(''); setPhone(''); setCategory('Family'); setRelationship(''); setNotes(''); }}>Kanselahin</button>}</div>
+          <div className="col-12 d-flex flex-wrap gap-2 pt-2"><button className="btn btn-handa emergency-submit-btn" type="submit"><i className="bi bi-person-plus-fill me-1" />{editingId ? 'I-save ang Pagbabago' : 'Idagdag ang Contact'}</button>{editingId && <button className="btn btn-outline-secondary" type="button" onClick={() => { setEditingId(null); setName(''); setPhone(''); setCategory('Family'); setRelationship(''); setNotes(''); }}>Kanselahin</button>}</div>
         </form>
         {message && <p className="small text-secondary mt-3 mb-0" role="status">{message}</p>}
       </div>
-      <div className="panel page-panel mb-3">
-        <div className="row g-2">
+      <div className="panel page-panel mb-3 emergency-search-panel">
+        <div className="row g-3 align-items-end">
           <div className="col-md-8"><label className="form-label small fw-semibold">Maghanap ng Contact</label><input className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="I-type ang pangalan o numero ng telepono..." /></div>
           <div className="col-md-4"><label className="form-label small fw-semibold">Pumili ng Kategorya</label><select className="form-select" value={filter} onChange={(e) => setFilter(e.target.value)}><option value="All">Lahat</option><option value="Family">Pamilya</option><option value="Medical">Medikal</option><option value="Emergency">Emergency</option><option value="Other">Iba pa</option></select></div>
         </div>
-        <p className="small text-secondary mt-3 mb-0"><i className="bi bi-people-fill me-1" />{contacts.length} naka-save na contact</p>
+        <div className="emergency-contact-count mt-3"><i className="bi bi-people-fill" /><span><strong>{contacts.length}</strong> naka-save na contact</span></div>
       </div>
       <div className="contact-page-grid">
         {filteredContacts.map((contact) => (
-          <div className="panel contact-card p-3" key={contact.id}>
+          <div className="panel contact-card p-3 emergency-contact-card" key={contact.id}>
             <div className="d-flex align-items-center gap-3 w-100">
-              <div className="rounded-circle bg-success-subtle text-success p-3"><i className="bi bi-person-lines-fill fs-5" /></div>
-              <div className="flex-grow-1 min-w-0"><div className="d-flex flex-wrap align-items-center gap-2"><strong className="text-break">{contact.name}</strong>{contact.isPrimary && <span className="badge text-bg-warning"><i className="bi bi-star-fill me-1" />Primary</span>}</div><span className="d-block">{contact.phone}</span><small className="text-secondary">{contact.relationship ? contact.relationship + ' · ' : ''}{({ Family: 'Pamilya', Medical: 'Medikal', Emergency: 'Emergency', Other: 'Iba pa' }[contact.category] || contact.category)}</small>{contact.notes && <p className="small text-secondary mt-2 mb-0">{contact.notes}</p>}</div>
+              <div className="emergency-contact-avatar"><i className="bi bi-person-fill" /></div>
+              <div className="flex-grow-1 min-w-0"><div className="d-flex flex-wrap align-items-center gap-2"><strong className="text-break">{contact.name}</strong>{contact.isPrimary && <span className="badge emergency-primary-badge"><i className="bi bi-star-fill me-1" />Pangunahing Contact</span>}</div><span className="d-block emergency-contact-phone"><i className="bi bi-telephone me-1" />{contact.phone}</span><small className="text-secondary emergency-contact-meta">{contact.relationship ? contact.relationship + ' · ' : ''}{({ Family: 'Pamilya', Medical: 'Medikal', Emergency: 'Emergency', Other: 'Iba pa' }[contact.category] || contact.category)}</small>{contact.notes && <p className="small text-secondary mt-2 mb-0">{contact.notes}</p>}</div>
             </div>
-            <div className="d-flex flex-wrap gap-2 mt-3">
+            <div className="d-flex flex-wrap gap-2 mt-3 emergency-contact-actions">
               <a className="btn btn-sm btn-success" href={'tel:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-telephone-fill me-1" />Tawagan</a>
               <a className="btn btn-sm btn-outline-success" href={'sms:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-chat-dots-fill me-1" />Mag-text</a>
               <button className="btn btn-sm btn-outline-secondary" onClick={() => { navigator.clipboard?.writeText(contact.phone); setMessage('Nakopya ang phone number.'); }}><i className="bi bi-copy me-1" />Kopyahin</button>
