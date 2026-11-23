@@ -1402,23 +1402,42 @@ function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, supplyR
 function EvacuationPage({ onPlanSaved, onActivityAdded }) {
   const [plan, setPlan] = useState({ evacuationCenter: '', meetingPoint: '', primaryRoute: '', backupRoute: '' });
   const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     dashboardRequest('/api/evacuation-plan')
-      .then((response) => response.json())
-      .then((data) => setPlan(data))
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Hindi ma-load ang saved evacuation plan.');
+        const data = await response.json();
+        setPlan({
+          evacuationCenter: data.evacuationCenter || '',
+          meetingPoint: data.meetingPoint || '',
+          primaryRoute: data.primaryRoute || '',
+          backupRoute: data.backupRoute || ''
+        });
+      })
       .catch((error) => setMessage(error.message));
   }, []);
 
   const updateField = (field, value) => setPlan((current) => ({ ...current, [field]: value }));
+  const origin = plan.meetingPoint.trim();
+  const destination = plan.evacuationCenter.trim();
+  const hasLocations = Boolean(origin && destination);
+  const mapQuery = destination || origin || 'evacuation center';
+  const mapEmbedUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`;
+  const directionsUrl = hasLocations
+    ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`
+    : '';
 
   async function savePlan() {
+    setSaving(true);
+    setMessage('');
     try {
       const response = await dashboardRequest('/api/evacuation-plan', {
         method: 'PUT',
         body: JSON.stringify(plan)
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.message || 'Hindi na-save ang evacuation plan.');
       setMessage('Matagumpay na na-save ang iyong evacuation plan.');
       if (onPlanSaved) onPlanSaved(plan);
@@ -1428,7 +1447,9 @@ function EvacuationPage({ onPlanSaved, onActivityAdded }) {
       });
       if (onActivityAdded) await onActivityAdded();
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message || 'May error sa pag-save. Subukang muli.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -1436,14 +1457,60 @@ function EvacuationPage({ onPlanSaved, onActivityAdded }) {
     <PageShell icon="bi-signpost-2-fill" title="Evacuation Plan" description="Maghanda ng simpleng plano para alam ng lahat ang pupuntahan.">
       <div className="panel page-panel">
         <div className="form-grid">
-          <div><label>Evacuation Center</label><input className="form-control" placeholder="Ilagay ang evacuation center" value={plan.evacuationCenter || ''} onChange={(e) => updateField('evacuationCenter', e.target.value)} /></div>
-          <div><label>Family Meeting Point</label><input className="form-control" placeholder="Ilagay ang meeting point" value={plan.meetingPoint || ''} onChange={(e) => updateField('meetingPoint', e.target.value)} /></div>
-          <div><label>Pangunahing Daanan (Primary Route)</label><input className="form-control" placeholder="Ilarawan ang pinakaligtas na daan" value={plan.primaryRoute || ''} onChange={(e) => updateField('primaryRoute', e.target.value)} /></div>
-          <div><label>Alternatibong Daanan (Backup Route)</label><input className="form-control" placeholder="Ilarawan ang alternatibong daan" value={plan.backupRoute || ''} onChange={(e) => updateField('backupRoute', e.target.value)} /></div>
+          <div>
+            <label>Evacuation Center</label>
+            <input className="form-control" placeholder="Ilagay ang pangalan o address ng evacuation center" value={plan.evacuationCenter || ''} onChange={(e) => updateField('evacuationCenter', e.target.value)} />
+          </div>
+          <div>
+            <label>Family Meeting Point (Starting Point)</label>
+            <input className="form-control" placeholder="Ilagay ang bahay o family meeting point" value={plan.meetingPoint || ''} onChange={(e) => updateField('meetingPoint', e.target.value)} />
+          </div>
+          <div>
+            <label>Pangunahing Daanan (Primary Route)</label>
+            <textarea className="form-control" rows="2" placeholder="Mga landmark o directions para sa pangunahing route" value={plan.primaryRoute || ''} onChange={(e) => updateField('primaryRoute', e.target.value)} />
+          </div>
+          <div>
+            <label>Alternatibong Daanan (Backup Route)</label>
+            <textarea className="form-control" rows="2" placeholder="Mga landmark o directions kung hindi madaanan ang primary route" value={plan.backupRoute || ''} onChange={(e) => updateField('backupRoute', e.target.value)} />
+          </div>
         </div>
-        <div className="plan-map-large"><i className="bi bi-map" /><div><strong>Map / Route Area</strong><span>Pwedeng i-integrate ang totoong map service dito pagdating ng panahon.</span></div></div>
-        <button className="btn btn-handa" onClick={savePlan}>I-save ang Evacuation Plan</button>
-        {message && <p className="small mt-3 mb-0 text-secondary">{message}</p>}
+
+        <div className="plan-map-large mt-3 p-0 overflow-hidden d-block">
+          <iframe
+            title="Evacuation location map"
+            src={mapEmbedUrl}
+            width="100%"
+            height="320"
+            style={{ border: 0, borderRadius: '12px' }}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          <div className="p-3">
+            <strong className="d-block mb-1">Map / Route Preview</strong>
+            <span className="small text-secondary d-block mb-3">
+              {destination ? `Map preview for: ${destination}` : 'Ilagay ang evacuation center para makita ito sa mapa.'}
+            </span>
+            {hasLocations ? (
+              <a className="btn btn-outline-handa btn-sm" href={directionsUrl} target="_blank" rel="noopener noreferrer">
+                <i className="bi bi-map me-2" />Open directions from meeting point to evacuation center
+              </a>
+            ) : (
+              <p className="small text-secondary mb-0">Ilagay ang family meeting point at evacuation center para makagawa ng directions link.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="d-flex flex-wrap gap-2 mt-3">
+          <button className="btn btn-handa" onClick={savePlan} disabled={saving}>
+            <i className="bi bi-save me-2" />{saving ? 'Saving...' : 'I-save ang Evacuation Plan'}
+          </button>
+          {hasLocations && (
+            <a className="btn btn-outline-handa" href={directionsUrl} target="_blank" rel="noopener noreferrer">
+              <i className="bi bi-signpost-2 me-2" />View Route in Google Maps
+            </a>
+          )}
+        </div>
+        {message && <p className={`small mt-3 mb-0 ${message.includes('Matagumpay') ? 'text-success' : 'text-secondary'}`} role="status">{message}</p>}
       </div>
     </PageShell>
   );
