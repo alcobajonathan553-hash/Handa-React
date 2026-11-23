@@ -470,6 +470,32 @@ export default function Dashboard({ user, onLogout, isOnline }) {
     }
   };
 
+  const setAllChecklistTasks = async (shouldComplete) => {
+    const previousTasks = tasks;
+    const updatedTasks = tasks.map((task) => ({ ...task, done: shouldComplete }));
+    if (updatedTasks.every((task, index) => task.done === previousTasks[index].done)) return;
+
+    setTasks(updatedTasks);
+    setDashboardError('');
+
+    try {
+      const response = await dashboardRequest('/api/checklists', {
+        method: 'PUT',
+        body: JSON.stringify({ tasks: updatedTasks })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || 'Hindi na-save ang pagbabago sa checklist.');
+
+      await recordActivity(
+        'Checklist updated',
+        shouldComplete ? 'Minarkahang tapos ang lahat ng emergency checklist tasks.' : 'Ni-reset ang lahat ng emergency checklist tasks.'
+      );
+    } catch (error) {
+      setTasks(previousTasks);
+      setDashboardError(error.message || 'Hindi na-update ang checklist. Pakisubukan muli.');
+    }
+  };
+
   const cycleSupply = async (id) => {
     const updatedSupplies = supplies.map((item) => {
       if (item.id !== id) return item;
@@ -646,6 +672,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
             <ChecklistPage
               tasks={tasks}
               onToggleTask={toggleTask}
+              onSetAllTasks={setAllChecklistTasks}
               percent={checklistPercent}
             />
           )}
@@ -1247,7 +1274,7 @@ function DashboardHome({
   );
 }
 
-function ChecklistPage({ tasks, onToggleTask, percent }) {
+function ChecklistPage({ tasks, onToggleTask, onSetAllTasks, percent }) {
   const [filter, setFilter] = useState('all');
   const completedCount = tasks.filter((task) => task.done).length;
   const pendingCount = tasks.length - completedCount;
@@ -1256,12 +1283,6 @@ function ChecklistPage({ tasks, onToggleTask, percent }) {
     if (filter === 'pending') return !task.done;
     return true;
   });
-
-  function updateAllTasks(shouldComplete) {
-    tasks.forEach((task) => {
-      if (task.done !== shouldComplete) onToggleTask(task.id);
-    });
-  }
 
   return (
     <PageShell
@@ -1296,8 +1317,8 @@ function ChecklistPage({ tasks, onToggleTask, percent }) {
             <p className="small text-secondary mb-0">Pindutin ang checkbox kapag natapos mo na ang isang gawain.</p>
           </div>
           <div className="checklist-bulk-actions">
-            <button type="button" className="btn btn-sm btn-outline-success" onClick={() => updateAllTasks(true)} disabled={pendingCount === 0}>Markahan lahat</button>
-            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => updateAllTasks(false)} disabled={completedCount === 0}>I-reset</button>
+            <button type="button" className="btn btn-sm btn-outline-success" onClick={() => onSetAllTasks(true)} disabled={pendingCount === 0}>Markahan lahat</button>
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => onSetAllTasks(false)} disabled={completedCount === 0}>I-reset</button>
           </div>
         </div>
 
