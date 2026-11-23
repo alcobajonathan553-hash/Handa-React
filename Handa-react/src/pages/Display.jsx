@@ -13,6 +13,9 @@ export default function Display({ onLogout }) {
   const [editQuantity, setEditQuantity] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [supplyRequests, setSupplyRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+  const [requestActionId, setRequestActionId] = useState(null);
 
   const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
   const api = `${API_BASE_URL}/api/supplies`;
@@ -56,9 +59,58 @@ export default function Display({ onLogout }) {
     }
   }
 
+  async function getSupplyRequests() {
+    try {
+      const response = await authorizedFetch(`${API_BASE_URL}/api/admin/supply-requests`);
+      if (!response.ok) await throwApiError(response, "Failed to load supply requests.");
+      setSupplyRequests(await response.json());
+    } catch (err) {
+      setError(err.message || "Unable to load supply requests.");
+    } finally {
+      setRequestsLoading(false);
+    }
+  }
+
   useEffect(() => {
     getSupplies();
+    getSupplyRequests();
+    const refreshId = window.setInterval(() => {
+      getSupplies();
+      getSupplyRequests();
+    }, 15000);
+    return () => window.clearInterval(refreshId);
   }, []);
+
+  async function updateSupplyRequest(id, status) {
+    setRequestActionId(id);
+    try {
+      const response = await authorizedFetch(`${API_BASE_URL}/api/admin/supply-requests/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      if (!response.ok) await throwApiError(response, "Failed to update request.");
+      await getSupplyRequests();
+    } catch (err) {
+      setError(err.message || "Unable to update supply request.");
+    } finally {
+      setRequestActionId(null);
+    }
+  }
+
+  async function releaseSupplyRequest(id) {
+    if (!window.confirm("Release this approved supply request and deduct its quantity from inventory?")) return;
+    setRequestActionId(id);
+    try {
+      const response = await authorizedFetch(`${API_BASE_URL}/api/admin/supply-requests/${id}/release`, { method: "POST" });
+      if (!response.ok) await throwApiError(response, "Failed to release supply request.");
+      await Promise.all([getSupplyRequests(), getSupplies()]);
+    } catch (err) {
+      setError(err.message || "Unable to release supply request.");
+    } finally {
+      setRequestActionId(null);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -278,6 +330,44 @@ export default function Display({ onLogout }) {
                 );
               })}
               {!isLoading && supplies.length === 0 && <tr><td colSpan="6" className="text-center py-5 text-secondary"><i className="bi bi-inbox fs-2 d-block mb-2" />No emergency supplies found.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="supply-card mb-4">
+        <div className="supply-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div className="d-flex align-items-center"><span className="supply-section-icon"><i className="bi bi-clipboard-check" /></span>Client Supply Requests</div>
+          <span className="small text-secondary">{supplyRequests.length} request{supplyRequests.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="table-responsive">
+          <table className="table table-hover supply-table mb-0">
+            <thead><tr><th>Client</th><th>Supply</th><th>Qty</th><th>Date</th><th>Status</th><th>Admin Actions</th></tr></thead>
+            <tbody>
+              {requestsLoading ? (
+                <tr><td colSpan="6" className="text-center py-4 text-secondary">Loading client requests...</td></tr>
+              ) : supplyRequests.length === 0 ? (
+                <tr><td colSpan="6" className="text-center py-4 text-secondary">No client supply requests yet.</td></tr>
+              ) : supplyRequests.map((request) => (
+                <tr key={request.id}>
+                  <td><strong>{request.clientName}</strong><small className="d-block text-secondary">{request.clientEmail}</small></td>
+                  <td>{request.supplyName}</td>
+                  <td>{request.quantity}</td>
+                  <td>{request.createdAt ? new Date(request.createdAt).toLocaleString() : '—'}</td>
+                  <td><span className={`badge ${request.status === 'Rejected' ? 'text-bg-danger' : request.status === 'Released' ? 'text-bg-success' : request.status === 'Approved' ? 'text-bg-primary' : 'text-bg-warning'}`}>{request.status}</span></td>
+                  <td>
+                    <div className="d-flex flex-wrap gap-1">
+                      {request.status === "Pending" && <>
+                        <button className="btn btn-sm btn-success" disabled={requestActionId === request.id} onClick={() => updateSupplyRequest(request.id, "Approved")}>Approve</button>
+                        <button className="btn btn-sm btn-outline-danger" disabled={requestActionId === request.id} onClick={() => updateSupplyRequest(request.id, "Rejected")}>Reject</button>
+                      </>}
+                      {request.status === "Approved" && <button className="btn btn-sm btn-primary" disabled={requestActionId === request.id} onClick={() => releaseSupplyRequest(request.id)}>{requestActionId === request.id ? "Please wait..." : "Release Supply"}</button>}
+                      {(request.status === "Rejected" || request.status === "Released") && <span className="small text-secondary">{request.status === "Released" ? "Completed" : "Closed"}</span>}
+                    </div>
+                    {request.adminNote && <small className="d-block text-secondary mt-1">{request.adminNote}</small>}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
