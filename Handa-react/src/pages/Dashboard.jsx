@@ -1521,7 +1521,7 @@ function EvacuationPage({ onPlanSaved, onActivityAdded }) {
             <input className="form-control" placeholder="Ilagay ang bahay o family meeting point" value={plan.meetingPoint || ''} onChange={(e) => updateField('meetingPoint', e.target.value)} />
           </div>
           <div>
-            <label>Pangunahing Daanan (Primary Route)</label>
+            <label>Pangunahing Daanan (Pangunahing Contact Route)</label>
             <textarea className="form-control" rows="2" placeholder="Mga landmark o directions para sa pangunahing route" value={plan.primaryRoute || ''} onChange={(e) => updateField('primaryRoute', e.target.value)} />
           </div>
           <div>
@@ -1576,7 +1576,7 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('Family');
-  const [relationship, setRelationship] = useState('');
+  const [relationship, setRelasyon] = useState('');
   const [notes, setNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
@@ -1640,49 +1640,44 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
   );
 
   return (
-    <PageShell icon="bi-telephone-fill" title="Emergency Contacts" description="Itago at madaling tawagan ang mahahalagang numero na kailangan sa oras ng sakuna.">
+    <PageShell icon="bi-telephone-fill" title="Mga Emergency Contact" description="I-save ang mahahalagang numero ng pamilya, kaibigan, at mga taong puwedeng tawagan kapag may sakuna o emergency.">
       <div className="panel page-panel mb-4">
-        <h3 className="h5 fw-bold mb-3">Add Emergency Contact</h3>
+        <h3 className="h5 fw-bold mb-3">Magdagdag ng Emergency Contact</h3>
         <form className="row g-3" onSubmit={addContact}>
-          <div className="col-md-4"><label className="form-label">Contact Name</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength="100" required placeholder="Hal. Juan Dela Cruz" /></div>
-          <div className="col-md-4"><label className="form-label">Phone Number</label><input className="form-control" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength="30" required placeholder="09XX XXX XXXX" /></div>
-          <div className="col-md-2"><label className="form-label">Category</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option>Family</option><option>Medical</option><option>Emergency</option><option>Other</option></select></div>
-          <div className="col-md-4"><label className="form-label">Relationship</label><input className="form-control" value={relationship} onChange={(e) => setRelationship(e.target.value)} maxLength="80" placeholder="Hal. Mother, Neighbor, Doctor" /></div>
-          <div className="col-md-8"><label className="form-label">Notes / Special Instructions</label><input className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength="500" placeholder="Important reminders..." /></div>
-          <div className="col-12 d-flex gap-2"><button className="btn btn-handa" type="submit"><i className="bi bi-person-plus-fill me-1" />{editingId ? 'Save Changes' : 'Add Contact'}</button>{editingId && <button className="btn btn-outline-secondary" type="button" onClick={() => { setEditingId(null); setName(''); setPhone(''); setCategory('Family'); setRelationship(''); setNotes(''); }}>Cancel Edit</button>}</div>
+          <div className="col-md-4"><label className="form-label">Pangalan ng Contact</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength="100" required placeholder="Hal. Juan Dela Cruz" /></div>
+          <div className="col-md-4"><label className="form-label">Numero ng Telepono</label><input className="form-control" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength="30" required placeholder="09XX XXX XXXX" /></div>
+          <div className="col-md-2"><label className="form-label">Category</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="Family">Pamilya</option><option value="Medical">Medikal</option><option value="Emergency">Emergency</option><option value="Other">Iba pa</option></select></div>
+          <div className="col-md-4"><label className="form-label">Relationship</label><input className="form-control" value={relationship} onChange={(e) => setRelationship(e.target.value)} maxLength="80" placeholder="Hal. Nanay, kapitbahay, doktor" /></div>
+          <div className="col-md-8"><label className="form-label">Mga Paalala / Mahalagang Tagubilin</label><input className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength="500" placeholder="Hal. may allergy, espesyal na pangangailangan, o ibang dapat tandaan" /></div>
+          <div className="col-12 d-flex gap-2"><button className="btn btn-handa" type="submit"><i className="bi bi-person-plus-fill me-1" />{editingId ? 'I-save ang Pagbabago' : 'Idagdag ang Contact'}</button>{editingId && <button className="btn btn-outline-secondary" type="button" onClick={() => { setEditingId(null); setName(''); setPhone(''); setCategory('Family'); setRelationship(''); setNotes(''); }}>Kanselahin</button>}</div>
         </form>
         {message && <p className="small text-secondary mt-3 mb-0" role="status">{message}</p>}
       </div>
       <div className="panel page-panel mb-3">
         <div className="row g-2">
-          <div className="col-md-8"><label className="form-label small fw-semibold">Search Contacts</label><input className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or phone number..." /></div>
-          <div className="col-md-4"><label className="form-label small fw-semibold">Filter Category</label><select className="form-select" value={filter} onChange={(e) => setFilter(e.target.value)}><option>All</option><option>Family</option><option>Medical</option><option>Emergency</option><option>Other</option></select></div>
+          <div className="col-md-8"><label className="form-label small fw-semibold">Maghanap ng Contact</label><input className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="I-type ang pangalan o numero ng telepono..." /></div>
+          <div className="col-md-4"><label className="form-label small fw-semibold">Pumili ng Kategorya</label><select className="form-select" value={filter} onChange={(e) => setFilter(e.target.value)}><option value="All">Lahat</option><option value="Family">Pamilya</option><option value="Medical">Medikal</option><option value="Emergency">Emergency</option><option value="Other">Iba pa</option></select></div>
         </div>
-        <p className="small text-secondary mt-3 mb-0"><i className="bi bi-people-fill me-1" />{contacts.length} saved contacts</p>
+        <p className="small text-secondary mt-3 mb-0"><i className="bi bi-people-fill me-1" />{contacts.length} naka-save na contact</p>
       </div>
       <div className="contact-page-grid">
         {filteredContacts.map((contact) => (
           <div className="panel contact-card p-3" key={contact.id}>
             <div className="d-flex align-items-center gap-3 w-100">
               <div className="rounded-circle bg-success-subtle text-success p-3"><i className="bi bi-person-lines-fill fs-5" /></div>
-              <div className="flex-grow-1 min-w-0"><div className="d-flex flex-wrap align-items-center gap-2"><strong className="text-break">{contact.name}</strong>{contact.isPrimary && <span className="badge text-bg-warning"><i className="bi bi-star-fill me-1" />Primary</span>}</div><span className="d-block">{contact.phone}</span><small className="text-secondary">{contact.relationship ? contact.relationship + ' · ' : ''}{contact.category}</small>{contact.notes && <p className="small text-secondary mt-2 mb-0">{contact.notes}</p>}</div>
+              <div className="flex-grow-1 min-w-0"><div className="d-flex flex-wrap align-items-center gap-2"><strong className="text-break">{contact.name}</strong>{contact.isPrimary && <span className="badge text-bg-warning"><i className="bi bi-star-fill me-1" />Primary</span>}</div><span className="d-block">{contact.phone}</span><small className="text-secondary">{contact.relationship ? contact.relationship + ' · ' : ''}{({ Family: 'Pamilya', Medical: 'Medikal', Emergency: 'Emergency', Other: 'Iba pa' }[contact.category] || contact.category)}</small>{contact.notes && <p className="small text-secondary mt-2 mb-0">{contact.notes}</p>}</div>
             </div>
             <div className="d-flex flex-wrap gap-2 mt-3">
-              <a className="btn btn-sm btn-success" href={'tel:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-telephone-fill me-1" />Call</a>
-              <a className="btn btn-sm btn-outline-success" href={'sms:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-chat-dots-fill me-1" />SMS</a>
-              <button className="btn btn-sm btn-outline-secondary" onClick={() => { navigator.clipboard?.writeText(contact.phone); setMessage('Nakopya ang phone number.'); }}><i className="bi bi-copy me-1" />Copy</button>
-              {!contact.isPrimary && <button className="btn btn-sm btn-outline-warning" onClick={() => makePrimary(contact.id)}><i className="bi bi-star me-1" />Set Primary</button>}
-              <button className="btn btn-sm btn-outline-secondary" onClick={() => editContact(contact)}><i className="bi bi-pencil me-1" />Edit</button>
-              <button className="btn btn-sm btn-outline-danger" onClick={() => deleteContact(contact.id)}><i className="bi bi-trash me-1" />Delete</button>
+              <a className="btn btn-sm btn-success" href={'tel:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-telephone-fill me-1" />Tawagan</a>
+              <a className="btn btn-sm btn-outline-success" href={'sms:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-chat-dots-fill me-1" />Mag-text</a>
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => { navigator.clipboard?.writeText(contact.phone); setMessage('Nakopya ang phone number.'); }}><i className="bi bi-copy me-1" />Kopyahin</button>
+              {!contact.isPrimary && <button className="btn btn-sm btn-outline-warning" onClick={() => makePrimary(contact.id)}><i className="bi bi-star me-1" />Gawing Pangunahing Contact</button>}
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => editContact(contact)}><i className="bi bi-pencil me-1" />I-edit</button>
+              <button className="btn btn-sm btn-outline-danger" onClick={() => deleteContact(contact.id)}><i className="bi bi-trash me-1" />Burahin</button>
             </div>
           </div>
         ))}
-        {filteredContacts.length === 0 && <p className="text-secondary">{contacts.length === 0 ? 'Wala pang naka-save na emergency contacts.' : 'Walang contact na tumugma sa iyong search o filter.'}</p>}
-      </div>
-      <div className="panel page-panel mt-4">
-        <h3 className="h6 fw-bold"><i className="bi bi-info-circle-fill text-success me-2" />Important Emergency Hotline</h3>
-        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2"><div><strong>National Emergency Hotline</strong><p className="small text-secondary mb-0">Philippines nationwide emergency assistance</p></div><a className="btn btn-success" href="tel:911"><i className="bi bi-telephone-fill me-2" />Call 911</a></div>
-        <p className="small text-secondary mt-2 mb-0">I-save rin ang verified hotline ng inyong barangay at local DRRMO. Maaaring magbago ang local contact numbers.</p>
+        {filteredContacts.length === 0 && <p className="text-secondary">{contacts.length === 0 ? 'Wala ka pang naka-save na emergency contact.' : 'Walang contact na tumugma sa iyong hinanap o piniling kategorya.'}</p>}
       </div>
     </PageShell>
   );
