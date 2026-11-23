@@ -177,6 +177,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [supplies, setSupplies] = useState(initialSupplies);
   const [sharedSupplies, setSharedSupplies] = useState([]);
   const [sharedSuppliesLoading, setSharedSuppliesLoading] = useState(true);
+  const [supplyRequests, setSupplyRequests] = useState([]);
   const [tasks, setTasks] = useState(initialTasks);
   const [search, setSearch] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
@@ -189,6 +190,17 @@ export default function Dashboard({ user, onLogout, isOnline }) {
 
   useEffect(() => {
     let active = true;
+
+    async function loadMySupplyRequests() {
+      try {
+        const response = await dashboardRequest('/api/my-supply-requests');
+        if (!response.ok) throw new Error('Hindi ma-load ang iyong supply requests.');
+        const data = await response.json();
+        if (active) setSupplyRequests(data);
+      } catch (error) {
+        console.error('Supply requests loading failed:', error);
+      }
+    }
 
     async function loadSharedSupplies() {
       try {
@@ -204,7 +216,11 @@ export default function Dashboard({ user, onLogout, isOnline }) {
     }
 
     loadSharedSupplies();
-    const refreshId = window.setInterval(loadSharedSupplies, 15000);
+    loadMySupplyRequests();
+    const refreshId = window.setInterval(() => {
+      loadSharedSupplies();
+      loadMySupplyRequests();
+    }, 15000);
 
     return () => {
       active = false;
@@ -272,6 +288,21 @@ export default function Dashboard({ user, onLogout, isOnline }) {
     loadDashboardExtras();
     return () => { active = false; };
   }, []);
+
+  async function submitSupplyRequest(supplyId, quantity) {
+    const requestedQuantity = Number(quantity);
+    if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
+      throw new Error('Maglagay ng valid na quantity na hindi bababa sa 1.');
+    }
+    const response = await dashboardRequest('/api/supply-requests', {
+      method: 'POST',
+      body: JSON.stringify({ supplyId, quantity: requestedQuantity })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || 'Hindi naisumite ang supply request.');
+    setSupplyRequests((current) => [result, ...current]);
+    return result;
+  }
 
   async function refreshActivities() {
     try {
@@ -578,6 +609,8 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               supplies={supplies}
               sharedSupplies={sharedSupplies}
               sharedSuppliesLoading={sharedSuppliesLoading}
+              supplyRequests={supplyRequests}
+              onSubmitSupplyRequest={submitSupplyRequest}
               onCycleSupply={cycleSupply}
               onAddSupply={addPersonalSupply}
             />
@@ -1214,9 +1247,12 @@ function ChecklistPage({ tasks, onToggleTask, percent }) {
   );
 }
 
-function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, onCycleSupply, onAddSupply }) {
+function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, supplyRequests = [], onSubmitSupplyRequest, onCycleSupply, onAddSupply }) {
   const [newSupplyName, setNewSupplyName] = useState('');
   const [message, setMessage] = useState('');
+  const [requestQuantities, setRequestQuantities] = useState({});
+  const [requestMessage, setRequestMessage] = useState('');
+  const [requestingSupplyId, setRequestingSupplyId] = useState(null);
 
   async function handleAddSupply(event) {
     event.preventDefault();
@@ -1250,7 +1286,7 @@ function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, onCycle
         ) : (
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0">
-              <thead><tr><th>Supply Name</th><th>Category</th><th>Quantity</th><th>Status</th></tr></thead>
+              <thead><tr><th>Supply Name</th><th>Category</th><th>Available</th><th>Status</th><th style={{ minWidth: 190 }}>Request Quantity</th></tr></thead>
               <tbody>
                 {sharedSupplies.map((item) => (
                   <tr key={item.id}>
@@ -1258,6 +1294,63 @@ function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, onCycle
                     <td>{item.category}</td>
                     <td>{item.quantity}</td>
                     <td><span className={`badge ${item.status === 'Low Stock' ? 'text-bg-warning' : 'text-bg-success'}`}>{item.status}</span></td>
+                    <td>
+                      <form className="d-flex gap-2" onSubmit={async (event) => {
+                        event.preventDefault();
+                        setRequestingSupplyId(item.id);
+                        setRequestMessage('');
+                        try {
+                          await onSubmitSupplyRequest(item.id, requestQuantities[item.id] || 1);
+                          setRequestQuantities((current) => ({ ...current, [item.id]: 1 }));
+                          setRequestMessage(`Request para sa ${item.name} ay naisumite na.`);
+                        } catch (error) {
+                          setRequestMessage(error.message || 'Hindi naisumite ang request.');
+                        } finally {
+                          setRequestingSupplyId(null);
+                        }
+                      }}>
+                        <input
+                          className="form-control form-control-sm"
+                          type="number"
+                          min="1"
+                          max={Number(item.quantity)}
+                          value={requestQuantities[item.id] ?? 1}
+                          onChange={(event) => setRequestQuantities((current) => ({ ...current, [item.id]: event.target.value }))}
+                          disabled={Number(item.quantity) < 1 || requestingSupplyId === item.id}
+                          aria-label={`Quantity for ${item.name}`}
+                          style={{ maxWidth: 78 }}
+                        />
+                        <button className="btn btn-sm btn-success text-nowrap" type="submit" disabled={Number(item.quantity) < 1 || requestingSupplyId === item.id}>
+                          {requestingSupplyId === item.id ? 'Sending...' : 'Request Supply'}
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {requestMessage && <div className="alert alert-info py-2 mt-3 mb-0 small">{requestMessage}</div>}
+      </div>
+
+      <div className="panel page-panel mb-4">
+        <h2 className="h5 fw-bold mb-1"><i className="bi bi-clipboard-check me-2 text-success" />Aking LGU Supply Requests</h2>
+        <p className="text-secondary small">Makikita rito kung Pending, Approved, Rejected, o Released na ang iyong request.</p>
+        {supplyRequests.length === 0 ? (
+          <p className="text-secondary small mb-0">Wala ka pang naisusumiteng request.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-sm align-middle mb-0">
+              <thead><tr><th>Supply</th><th>Quantity</th><th>Date</th><th>Status</th><th>Admin Note</th></tr></thead>
+              <tbody>
+                {supplyRequests.map((request) => (
+                  <tr key={request.id}>
+                    <td className="fw-semibold">{request.supplyName}</td>
+                    <td>{request.quantity}</td>
+                    <td>{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</td>
+                    <td><span className={`badge ${request.status === 'Rejected' ? 'text-bg-danger' : request.status === 'Released' ? 'text-bg-success' : request.status === 'Approved' ? 'text-bg-primary' : 'text-bg-warning'}`}>{request.status}</span></td>
+                    <td>{request.adminNote || '—'}</td>
                   </tr>
                 ))}
               </tbody>
