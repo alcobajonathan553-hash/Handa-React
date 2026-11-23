@@ -549,6 +549,24 @@ app.post('/api/admin/supply-requests/:id/release', requireFirebaseUser, requireA
       "UPDATE supply_requests SET status = 'Released', released_at = CURRENT_TIMESTAMP, reviewed_by = ? WHERE id = ? AND status = 'Approved'",
       [req.firebaseUser.uid, id]
     );
+
+    // Add the released LGU items to the requesting resident's personal emergency kit.
+    const [personalItems] = await connection.execute(
+      'SELECT id, quantity FROM user_supplies WHERE user_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) ORDER BY id LIMIT 1 FOR UPDATE',
+      [request.user_id, supplies[0].name]
+    );
+    if (personalItems.length) {
+      await connection.execute(
+        "UPDATE user_supplies SET quantity = quantity + ?, status = 'Ready' WHERE id = ? AND user_id = ?",
+        [Number(request.quantity), personalItems[0].id, request.user_id]
+      );
+    } else {
+      await connection.execute(
+        "INSERT INTO user_supplies (user_id, name, quantity, status) VALUES (?, ?, ?, 'Ready')",
+        [request.user_id, supplies[0].name, Number(request.quantity)]
+      );
+    }
+
     await connection.execute(
       'INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)',
       [request.user_id, 'Emergency supply released', `${request.quantity} unit(s) of ${supplies[0].name} have been released for your request.`]
