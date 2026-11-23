@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { auth } from '../components/firebase.js';
 import DisasterDetail from './DisasterDetail';
+import PublicResourceBoard from './PublicResourceBoard.jsx';
 
 const disasterList = [
   {
@@ -1467,6 +1468,7 @@ function GuidesPage({ disasters, onSelect }) {
           </div>
         ))}
       </div>
+      <PublicResourceBoard />
     </PageShell>
   );
 }
