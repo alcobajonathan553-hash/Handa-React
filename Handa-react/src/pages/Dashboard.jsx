@@ -1021,8 +1021,7 @@ function DashboardHome({
         <div className="panel supply-panel">
           <SectionTitle
             icon="bi-backpack4"
-            title="Emergency Kit Tracker"
-            text="Live inventory mula sa administrator. Awtomatikong nag-a-update kada 15 segundo."
+            title="Aking Emergency Kit"
             action="I-manage"
             onAction={() => navigate('supplies')}
           />
