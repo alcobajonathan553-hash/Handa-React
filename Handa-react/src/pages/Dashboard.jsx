@@ -1576,6 +1576,8 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('Family');
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('All');
   const [message, setMessage] = useState('');
 
   async function loadContacts() {
@@ -1587,68 +1589,82 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
       if (onContactsChanged) onContactsChanged(savedContacts);
     } catch (error) { setMessage(error.message); }
   }
-
   useEffect(() => { loadContacts(); }, []);
 
   async function addContact(event) {
     event.preventDefault();
     try {
-      const response = await dashboardRequest('/api/emergency-contacts', {
-        method: 'POST',
-        body: JSON.stringify({ name, phone, category })
-      });
+      const response = await dashboardRequest('/api/emergency-contacts', { method: 'POST', body: JSON.stringify({ name, phone, category }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Hindi naidagdag ang contact.');
-      setName('');
-      setPhone('');
-      setMessage('Naidagdag ang emergency contact.');
-      await dashboardRequest('/api/activity-logs', {
-        method: 'POST',
-        body: JSON.stringify({ action: 'Emergency contact added', description: `Added emergency contact: ${name.trim()}` })
-      });
+      const addedName = name.trim();
+      setName(''); setPhone(''); setMessage('Naidagdag ang emergency contact.');
+      await dashboardRequest('/api/activity-logs', { method: 'POST', body: JSON.stringify({ action: 'Emergency contact added', description: 'Added emergency contact: ' + addedName }) });
       if (onActivityAdded) await onActivityAdded();
       await loadContacts();
     } catch (error) { setMessage(error.message); }
   }
 
   async function deleteContact(id) {
+    if (!window.confirm('Sigurado ka bang buburahin ang contact na ito?')) return;
     try {
-      const response = await dashboardRequest(`/api/emergency-contacts/${id}`, { method: 'DELETE' });
+      const response = await dashboardRequest('/api/emergency-contacts/' + id, { method: 'DELETE' });
       if (!response.ok) throw new Error('Hindi mabura ang contact.');
-      await dashboardRequest('/api/activity-logs', {
-        method: 'POST',
-        body: JSON.stringify({ action: 'Emergency contact removed', description: `Removed emergency contact ID ${id}` })
-      });
+      setMessage('Nabura ang emergency contact.');
       if (onActivityAdded) await onActivityAdded();
       await loadContacts();
     } catch (error) { setMessage(error.message); }
   }
 
+  const filteredContacts = contacts.filter((contact) =>
+    (filter === 'All' || contact.category === filter) &&
+    (String(contact.name + ' ' + contact.phone + ' ' + contact.category).toLowerCase().includes(search.trim().toLowerCase()))
+  );
+
   return (
-    <PageShell icon="bi-telephone-fill" title="Emergency Contacts" description="Itago ang mahahalagang numero na kailangan sa oras ng sakuna.">
+    <PageShell icon="bi-telephone-fill" title="Emergency Contacts" description="Itago at madaling tawagan ang mahahalagang numero na kailangan sa oras ng sakuna.">
       <div className="panel page-panel mb-4">
+        <h3 className="h5 fw-bold mb-3">Add Emergency Contact</h3>
         <form className="row g-3" onSubmit={addContact}>
-          <div className="col-md-4"><label className="form-label">Contact Name</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} required /></div>
-          <div className="col-md-4"><label className="form-label">Phone Number</label><input className="form-control" value={phone} onChange={(e) => setPhone(e.target.value)} required /></div>
+          <div className="col-md-4"><label className="form-label">Contact Name</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength="100" required placeholder="Hal. Juan Dela Cruz" /></div>
+          <div className="col-md-4"><label className="form-label">Phone Number</label><input className="form-control" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength="30" required placeholder="09XX XXX XXXX" /></div>
           <div className="col-md-2"><label className="form-label">Category</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option>Family</option><option>Medical</option><option>Emergency</option><option>Other</option></select></div>
-          <div className="col-md-2 d-flex align-items-end"><button className="btn btn-handa w-100" type="submit">Add Contact</button></div>
+          <div className="col-md-2 d-flex align-items-end"><button className="btn btn-handa w-100" type="submit"><i className="bi bi-person-plus-fill me-1" />Add</button></div>
         </form>
-        {message && <p className="small text-secondary mt-3 mb-0">{message}</p>}
+        {message && <p className="small text-secondary mt-3 mb-0" role="status">{message}</p>}
+      </div>
+      <div className="panel page-panel mb-3">
+        <div className="row g-2">
+          <div className="col-md-8"><label className="form-label small fw-semibold">Search Contacts</label><input className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or phone number..." /></div>
+          <div className="col-md-4"><label className="form-label small fw-semibold">Filter Category</label><select className="form-select" value={filter} onChange={(e) => setFilter(e.target.value)}><option>All</option><option>Family</option><option>Medical</option><option>Emergency</option><option>Other</option></select></div>
+        </div>
+        <p className="small text-secondary mt-3 mb-0"><i className="bi bi-people-fill me-1" />{contacts.length} saved contacts</p>
       </div>
       <div className="contact-page-grid">
-        {contacts.map((contact) => (
-          <div className="panel contact-card" key={contact.id}>
-            <i className="bi bi-person-lines-fill" />
-            <div><strong>{contact.name}</strong><span>{contact.phone}</span><small>{contact.category}</small></div>
-            <button className="btn btn-sm btn-outline-danger" onClick={() => deleteContact(contact.id)}>Delete</button>
+        {filteredContacts.map((contact) => (
+          <div className="panel contact-card p-3" key={contact.id}>
+            <div className="d-flex align-items-center gap-3 w-100">
+              <div className="rounded-circle bg-success-subtle text-success p-3"><i className="bi bi-person-lines-fill fs-5" /></div>
+              <div className="flex-grow-1 min-w-0"><strong className="d-block text-break">{contact.name}</strong><span className="d-block">{contact.phone}</span><small className="text-secondary">{contact.category}</small></div>
+            </div>
+            <div className="d-flex flex-wrap gap-2 mt-3">
+              <a className="btn btn-sm btn-success" href={'tel:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-telephone-fill me-1" />Call</a>
+              <a className="btn btn-sm btn-outline-success" href={'sms:' + contact.phone.replace(/[^+0-9]/g, '')}><i className="bi bi-chat-dots-fill me-1" />SMS</a>
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => { navigator.clipboard?.writeText(contact.phone); setMessage('Nakopya ang phone number.'); }}><i className="bi bi-copy me-1" />Copy</button>
+              <button className="btn btn-sm btn-outline-danger" onClick={() => deleteContact(contact.id)}><i className="bi bi-trash me-1" />Delete</button>
+            </div>
           </div>
         ))}
-        {contacts.length === 0 && <p className="text-secondary">Wala pang naka-save na emergency contacts.</p>}
+        {filteredContacts.length === 0 && <p className="text-secondary">{contacts.length === 0 ? 'Wala pang naka-save na emergency contacts.' : 'Walang contact na tumugma sa iyong search o filter.'}</p>}
+      </div>
+      <div className="panel page-panel mt-4">
+        <h3 className="h6 fw-bold"><i className="bi bi-info-circle-fill text-success me-2" />Important Emergency Hotline</h3>
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2"><div><strong>National Emergency Hotline</strong><p className="small text-secondary mb-0">Philippines nationwide emergency assistance</p></div><a className="btn btn-success" href="tel:911"><i className="bi bi-telephone-fill me-2" />Call 911</a></div>
+        <p className="small text-secondary mt-2 mb-0">I-save rin ang verified hotline ng inyong barangay at local DRRMO. Maaaring magbago ang local contact numbers.</p>
       </div>
     </PageShell>
   );
 }
-
 function GuidesPage({ disasters, onSelect }) {
   return (
     <PageShell
