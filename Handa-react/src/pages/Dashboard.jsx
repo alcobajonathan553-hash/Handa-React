@@ -560,6 +560,8 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               contacts={contacts}
               evacuationPlan={evacuationPlan}
               activities={activities}
+              sharedSupplies={sharedSupplies}
+              sharedSuppliesLoading={sharedSuppliesLoading}
             />
           )}
 
