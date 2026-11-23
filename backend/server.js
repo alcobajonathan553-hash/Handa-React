@@ -384,17 +384,41 @@ app.put('/api/evacuation-plan', requireFirebaseUser, requireProfileId, asyncRout
 }));
 
 app.get('/api/emergency-contacts', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
-  const [rows] = await pool.execute('SELECT id, name, phone, category FROM emergency_contacts WHERE user_id = ? ORDER BY id', [req.mysqlUserId]);
-  res.json(rows);
+  const [rows] = await pool.execute('SELECT id, name, phone, category, relationship, notes, is_primary AS isPrimary FROM emergency_contacts WHERE user_id = ? ORDER BY is_primary DESC, name ASC', [req.mysqlUserId]);
+  res.json(rows.map((row) => ({ ...row, isPrimary: Boolean(row.isPrimary) })));
 }));
 
 app.post('/api/emergency-contacts', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
-  const { name, phone, category = 'Family' } = req.body || {};
-  if (typeof name !== 'string' || !name.trim() || typeof phone !== 'string' || !phone.trim()) {
-    return res.status(400).json({ message: 'Contact name and phone are required.' });
-  }
-  const [result] = await pool.execute('INSERT INTO emergency_contacts (user_id, name, phone, category) VALUES (?, ?, ?, ?)', [req.mysqlUserId, name.trim(), phone.trim(), String(category).trim() || 'Family']);
-  res.status(201).json({ id: result.insertId, name: name.trim(), phone: phone.trim(), category });
+  const { name, phone, category = 'Family', relationship = '', notes = '' } = req.body || {};
+  if (typeof name !== 'string' || !name.trim() || typeof phone !== 'string' || !phone.trim()) return res.status(400).json({ message: 'Contact name and phone are required.' });
+  if (!['Family', 'Medical', 'Emergency', 'Other'].includes(category) || typeof relationship !== 'string' || typeof notes !== 'string') return res.status(400).json({ message: 'Invalid contact details.' });
+  const [result] = await pool.execute('INSERT INTO emergency_contacts (user_id, name, phone, category, relationship, notes, is_primary) VALUES (?, ?, ?, ?, ?, ?, 0)', [req.mysqlUserId, name.trim(), phone.trim(), category, relationship.trim().slice(0, 80), notes.trim().slice(0, 500)]);
+  res.status(201).json({ id: result.insertId, name: name.trim(), phone: phone.trim(), category, relationship: relationship.trim(), notes: notes.trim(), isPrimary: false });
+}));
+
+app.patch('/api/emergency-contacts/:id', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const { name, phone, category, relationship = '', notes = '' } = req.body || {};
+  if (!Number.isInteger(id) || id < 1 || typeof name !== 'string' || !name.trim() || typeof phone !== 'string' || !phone.trim() || !['Family', 'Medical', 'Emergency', 'Other'].includes(category) || typeof relationship !== 'string' || typeof notes !== 'string') return res.status(400).json({ message: 'Valid contact details are required.' });
+  const [result] = await pool.execute('UPDATE emergency_contacts SET name = ?, phone = ?, category = ?, relationship = ?, notes = ? WHERE id = ? AND user_id = ?', [name.trim(), phone.trim(), category, relationship.trim().slice(0, 80), notes.trim().slice(0, 500), id, req.mysqlUserId]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Contact not found.' });
+  res.json({ id, name: name.trim(), phone: phone.trim(), category, relationship: relationship.trim(), notes: notes.trim() });
+}));
+
+app.patch('/api/emergency-contacts/:id/primary', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: 'Invalid contact ID.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.execute('SELECT id FROM emergency_contacts WHERE id = ? AND user_id = ? FOR UPDATE', [id, req.mysqlUserId]);
+    if (!rows.length) { await connection.rollback(); return res.status(404).json({ message: 'Contact not found.' }); }
+    await connection.execute('UPDATE emergency_contacts SET is_primary = 0 WHERE user_id = ?', [req.mysqlUserId]);
+    await connection.execute('UPDATE emergency_contacts SET is_primary = 1 WHERE id = ? AND user_id = ?', [id, req.mysqlUserId]);
+    await connection.commit();
+    res.json({ id, isPrimary: true, message: 'Primary contact updated.' });
+  } catch (error) { await connection.rollback(); throw error; }
+  finally { connection.release(); }
 }));
 
 app.delete('/api/emergency-contacts/:id', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
