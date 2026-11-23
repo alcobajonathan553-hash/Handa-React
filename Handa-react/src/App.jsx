@@ -146,7 +146,7 @@ export default function App() {
             <Route path="/" element={<Navigate to={role === 'admin' ? '/display' : '/dashboard'} replace />} />
             <Route path="/home" element={<LandingPage user={user} role={role} onLogin={handleLogin} onLogout={handleLogout} isOnline={isOnline} />} />
             <Route path="/dashboard" element={role === 'resident' ? <Dashboard user={user} onLogout={handleLogout} isOnline={isOnline} /> : <Navigate to="/" replace />} />
-            <Route path="/display" element={role === 'admin' ? <Display user={user} role={role} /> : <Navigate to="/" replace />} />
+            <Route path="/display" element={role === 'admin' ? <Display user={user} role={role} onLogout={handleLogout} /> : <Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         )}
