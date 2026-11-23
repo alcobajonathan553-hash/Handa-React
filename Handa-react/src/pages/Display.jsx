@@ -212,6 +212,15 @@ export default function Display({ onLogout }) {
           .supply-card .supply-table { min-width: 760px !important; width: 760px !important; table-layout: auto; }
         }
         .supply-table .supply-action { padding: 7px 10px; }
+        .request-action { border-radius: 8px; font-weight: 700; letter-spacing: .01em; padding: 7px 11px; display: inline-flex; align-items: center; gap: 5px; transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
+        .request-action:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.12); }
+        .request-action:disabled { opacity: .6; cursor: wait; }
+        .request-approve { background: #198754; border-color: #198754; color: #fff; }
+        .request-approve:hover:not(:disabled) { background: #146c43; border-color: #146c43; color: #fff; }
+        .request-reject { background: #dc3545; border-color: #dc3545; color: #fff; }
+        .request-reject:hover:not(:disabled) { background: #b02a37; border-color: #b02a37; color: #fff; }
+        .request-release { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+        .request-release:hover:not(:disabled) { background: #0a58ca; border-color: #0a58ca; color: #fff; }
         .supply-id { display: inline-flex; min-width: 32px; height: 30px; align-items: center; justify-content: center; border-radius: 8px; background: #f0f4f1; color: #52665a; font-weight: 700; font-size: .8rem; }
         .supply-name-icon { width: 36px; height: 36px; border-radius: 10px; background: #eaf6ee; color: #16834a; display: inline-grid; place-items: center; flex-shrink: 0; }
         .supply-category { display: inline-block; background: #f2f5f3; color: #52665a; border-radius: 8px; padding: 6px 9px; font-size: .78rem; font-weight: 600; }
@@ -358,10 +367,10 @@ export default function Display({ onLogout }) {
                   <td>
                     <div className="d-flex flex-wrap gap-1">
                       {request.status === "Pending" && <>
-                        <button className="btn btn-sm btn-success" disabled={requestActionId === request.id} onClick={() => updateSupplyRequest(request.id, "Approved")}>Approve</button>
-                        <button className="btn btn-sm btn-outline-danger" disabled={requestActionId === request.id} onClick={() => updateSupplyRequest(request.id, "Rejected")}>Reject</button>
+                        <button className="btn btn-sm request-action request-approve" disabled={requestActionId === request.id} onClick={() => updateSupplyRequest(request.id, "Approved")}><i className="bi bi-check-circle-fill" />Approve</button>
+                        <button className="btn btn-sm request-action request-reject" disabled={requestActionId === request.id} onClick={() => updateSupplyRequest(request.id, "Rejected")}><i className="bi bi-x-circle-fill" />Reject</button>
                       </>}
-                      {request.status === "Approved" && <button className="btn btn-sm btn-primary" disabled={requestActionId === request.id} onClick={() => releaseSupplyRequest(request.id)}>{requestActionId === request.id ? "Please wait..." : "Release Supply"}</button>}
+                      {request.status === "Approved" && <button className="btn btn-sm request-action request-release" disabled={requestActionId === request.id} onClick={() => releaseSupplyRequest(request.id)}><i className="bi bi-box-seam" />{requestActionId === request.id ? "Please wait..." : "Release Supply"}</button>}
                       {(request.status === "Rejected" || request.status === "Released") && <span className="small text-secondary">{request.status === "Released" ? "Completed" : "Closed"}</span>}
                     </div>
                     {request.adminNote && <small className="d-block text-secondary mt-1">{request.adminNote}</small>}
