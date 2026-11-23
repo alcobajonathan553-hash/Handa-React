@@ -148,6 +148,7 @@ app.get('/api/health', asyncRoute(async (req, res) => {
     'evacuation_plans',
     'emergency_contacts',
     'supplies',
+    'supply_requests',
     'notifications',
     'activity_logs',
   ];
@@ -393,6 +394,173 @@ app.delete('/api/emergency-contacts/:id', requireFirebaseUser, requireProfileId,
   const [result] = await pool.execute('DELETE FROM emergency_contacts WHERE id = ? AND user_id = ?', [id, req.mysqlUserId]);
   if (!result.affectedRows) return res.status(404).json({ message: 'Contact not found.' });
   res.json({ id });
+}));
+
+app.get('/api/my-supply-requests', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT r.id, r.quantity, r.status, r.admin_note AS adminNote,
+            r.created_at AS createdAt, s.name AS supplyName
+     FROM supply_requests r
+     INNER JOIN supplies s ON s.id = r.supply_id
+     WHERE r.user_id = ?
+     ORDER BY r.created_at DESC`,
+    [req.mysqlUserId]
+  );
+  res.json(rows);
+}));
+
+app.post('/api/supply-requests', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const supplyId = Number(req.body?.supplyId);
+  const quantity = Number(req.body?.quantity);
+  if (!Number.isInteger(supplyId) || supplyId < 1 || !Number.isInteger(quantity) || quantity < 1) {
+    return res.status(400).json({ message: 'Choose a valid supply and a quantity of at least 1.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [supplies] = await connection.execute(
+      'SELECT id, name, quantity FROM supplies WHERE id = ? FOR UPDATE',
+      [supplyId]
+    );
+    if (!supplies.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Supply item not found.' });
+    }
+    if (Number(supplies[0].quantity) < quantity) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Not enough stock for that quantity. Please refresh the inventory.' });
+    }
+
+    const [result] = await connection.execute(
+      "INSERT INTO supply_requests (user_id, supply_id, quantity, status) VALUES (?, ?, ?, 'Pending')",
+      [req.mysqlUserId, supplyId, quantity]
+    );
+    const [rows] = await connection.execute(
+      `SELECT r.id, r.quantity, r.status, r.created_at AS createdAt, s.name AS supplyName
+       FROM supply_requests r INNER JOIN supplies s ON s.id = r.supply_id WHERE r.id = ?`,
+      [result.insertId]
+    );
+    await connection.commit();
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}));
+
+app.get('/api/admin/supply-requests', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT r.id, r.quantity, r.status, r.admin_note AS adminNote,
+            r.created_at AS createdAt, r.reviewed_at AS reviewedAt,
+            u.name AS clientName, u.email AS clientEmail, s.name AS supplyName
+     FROM supply_requests r
+     INNER JOIN users u ON u.id = r.user_id
+     INNER JOIN supplies s ON s.id = r.supply_id
+     ORDER BY CASE r.status WHEN 'Pending' THEN 0 WHEN 'Approved' THEN 1 ELSE 2 END, r.created_at DESC`
+  );
+  res.json(rows);
+}));
+
+app.patch('/api/admin/supply-requests/:id', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const status = req.body?.status;
+  if (!Number.isInteger(id) || id < 1 || !['Approved', 'Rejected'].includes(status)) {
+    return res.status(400).json({ message: 'A valid request ID and Approved or Rejected status are required.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [requests] = await connection.execute(
+      'SELECT id, user_id, status, quantity FROM supply_requests WHERE id = ? FOR UPDATE',
+      [id]
+    );
+    if (!requests.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Supply request not found.' });
+    }
+    if (requests[0].status !== 'Pending') {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Only pending requests can be approved or rejected.' });
+    }
+
+    const note = typeof req.body?.adminNote === 'string' ? req.body.adminNote.trim().slice(0, 500) : null;
+    await connection.execute(
+      'UPDATE supply_requests SET status = ?, admin_note = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ? WHERE id = ?',
+      [status, note, req.firebaseUser.uid, id]
+    );
+    const title = status === 'Approved' ? 'Supply request approved' : 'Supply request rejected';
+    const message = status === 'Approved'
+      ? 'Your LGU supply request was approved. Please wait for the supply to be released.'
+      : 'Your LGU supply request was rejected by the administrator.';
+    await connection.execute(
+      'INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)',
+      [requests[0].user_id, title, message]
+    );
+    await connection.commit();
+    res.json({ id, status, message: 'Supply request updated.' });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}));
+
+app.post('/api/admin/supply-requests/:id/release', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: 'Invalid request ID.' });
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [requests] = await connection.execute(
+      'SELECT id, user_id, supply_id, quantity, status FROM supply_requests WHERE id = ? FOR UPDATE',
+      [id]
+    );
+    if (!requests.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Supply request not found.' });
+    }
+    const request = requests[0];
+    if (request.status !== 'Approved') {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Only approved requests can be released.' });
+    }
+
+    const [supplies] = await connection.execute(
+      'SELECT id, name, quantity FROM supplies WHERE id = ? FOR UPDATE',
+      [request.supply_id]
+    );
+    if (!supplies.length || Number(supplies[0].quantity) < Number(request.quantity)) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Not enough inventory remains. Restock or adjust the request before releasing.' });
+    }
+
+    const remainingQuantity = Number(supplies[0].quantity) - Number(request.quantity);
+    await connection.execute(
+      'UPDATE supplies SET quantity = ?, status = ? WHERE id = ?',
+      [remainingQuantity, getSupplyStatus(remainingQuantity), request.supply_id]
+    );
+    await connection.execute(
+      "UPDATE supply_requests SET status = 'Released', released_at = CURRENT_TIMESTAMP, reviewed_by = ? WHERE id = ? AND status = 'Approved'",
+      [req.firebaseUser.uid, id]
+    );
+    await connection.execute(
+      'INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)',
+      [request.user_id, 'Emergency supply released', `${request.quantity} unit(s) of ${supplies[0].name} have been released for your request.`]
+    );
+    await connection.commit();
+    res.json({ id, status: 'Released', remainingQuantity, message: 'Supply released and inventory updated.' });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }));
 
 app.get('/api/public-supplies', requireFirebaseUser, asyncRoute(async (req, res) => {
