@@ -283,6 +283,14 @@ app.put('/api/checklists', requireFirebaseUser, requireProfileId, asyncRoute(asy
   }
 }));
 
+app.get('/api/my-lgu-kit', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    "SELECT id, name, quantity, status FROM user_supplies WHERE user_id = ? AND source = 'lgu' ORDER BY name ASC, id ASC",
+    [req.mysqlUserId]
+  );
+  res.json(rows);
+}));
+
 app.get('/api/user-supplies', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
   const connection = await pool.getConnection();
 
@@ -552,12 +560,12 @@ app.post('/api/admin/supply-requests/:id/release', requireFirebaseUser, requireA
 
     // Add the released LGU items to the requesting resident's personal emergency kit.
     const [personalItems] = await connection.execute(
-      'SELECT id, quantity FROM user_supplies WHERE user_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) ORDER BY id LIMIT 1 FOR UPDATE',
+      "SELECT id, quantity FROM user_supplies WHERE user_id = ? AND source = 'lgu' AND LOWER(TRIM(name)) = LOWER(TRIM(?)) ORDER BY id LIMIT 1 FOR UPDATE",
       [request.user_id, supplies[0].name]
     );
     if (personalItems.length) {
       await connection.execute(
-        "UPDATE user_supplies SET quantity = quantity + ?, status = 'Ready' WHERE id = ? AND user_id = ?",
+        "UPDATE user_supplies SET quantity = quantity + ?, status = 'Ready', source = 'lgu' WHERE id = ? AND user_id = ?",
         [Number(request.quantity), personalItems[0].id, request.user_id]
       );
     } else {
