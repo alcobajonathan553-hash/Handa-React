@@ -447,6 +447,80 @@ app.delete('/api/supplies/:id', requireFirebaseUser, requireAdmin, asyncRoute(as
 }));
 
 
+
+const sharedResourceTables = {
+  centers: { table: 'public_evacuation_centers', fields: ['name', 'address', 'notes'] },
+  contacts: { table: 'public_emergency_contacts', fields: ['name', 'phone', 'category'] },
+  guides: { table: 'disaster_guides', fields: ['title', 'description', 'content'] },
+  announcements: { table: 'announcements', fields: ['title', 'message', 'priority'] }
+};
+
+app.get('/api/public-resources', requireFirebaseUser, asyncRoute(async (req, res) => {
+  const [centers] = await pool.execute('SELECT id, name, address, notes FROM public_evacuation_centers ORDER BY id DESC');
+  const [contacts] = await pool.execute('SELECT id, name, phone, category FROM public_emergency_contacts ORDER BY id DESC');
+  const [guides] = await pool.execute('SELECT id, title, description, content FROM disaster_guides ORDER BY id DESC');
+  const [announcements] = await pool.execute('SELECT id, title, message, priority, created_at AS createdAt FROM announcements ORDER BY created_at DESC LIMIT 50');
+  res.json({ centers, contacts, guides, announcements });
+}));
+
+app.get('/api/admin/resources/:type', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const config = sharedResourceTables[req.params.type];
+  if (!config) return res.status(404).json({ message: 'Unknown resource type.' });
+  const columns = ['id', ...config.fields].join(', ');
+  const [rows] = await pool.execute(`SELECT ${columns} FROM ${config.table} ORDER BY id DESC`);
+  res.json(rows);
+}));
+
+app.post('/api/admin/resources/:type', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const config = sharedResourceTables[req.params.type];
+  if (!config) return res.status(404).json({ message: 'Unknown resource type.' });
+  const values = config.fields.map((field) => String(req.body?.[field] ?? '').trim());
+  if (values.some((value) => !value) || (req.params.type === 'contacts' && !/^[-+() 0-9]{7,40}$/.test(values[1]))) {
+    return res.status(400).json({ message: 'Please provide valid and complete information.' });
+  }
+  const columns = config.fields.join(', ');
+  const placeholders = config.fields.map(() => '?').join(', ');
+  const [result] = await pool.execute(`INSERT INTO ${config.table} (${columns}) VALUES (${placeholders})`, values);
+  const [rows] = await pool.execute(`SELECT id, ${columns} FROM ${config.table} WHERE id = ?`, [result.insertId]);
+  res.status(201).json(rows[0]);
+}));
+
+app.put('/api/admin/resources/:type/:id', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const config = sharedResourceTables[req.params.type];
+  const id = Number(req.params.id);
+  if (!config) return res.status(404).json({ message: 'Unknown resource type.' });
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: 'Invalid resource ID.' });
+  const values = config.fields.map((field) => String(req.body?.[field] ?? '').trim());
+  if (values.some((value) => !value) || (req.params.type === 'contacts' && !/^[-+() 0-9]{7,40}$/.test(values[1]))) {
+    return res.status(400).json({ message: 'Please provide valid and complete information.' });
+  }
+  const updates = config.fields.map((field) => `${field} = ?`).join(', ');
+  const [result] = await pool.execute(`UPDATE ${config.table} SET ${updates} WHERE id = ?`, [...values, id]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Resource not found.' });
+  const [rows] = await pool.execute(`SELECT id, ${config.fields.join(', ')} FROM ${config.table} WHERE id = ?`, [id]);
+  res.json(rows[0]);
+}));
+
+app.delete('/api/admin/resources/:type/:id', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const config = sharedResourceTables[req.params.type];
+  const id = Number(req.params.id);
+  if (!config) return res.status(404).json({ message: 'Unknown resource type.' });
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: 'Invalid resource ID.' });
+  const [result] = await pool.execute(`DELETE FROM ${config.table} WHERE id = ?`, [id]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Resource not found.' });
+  res.json({ id });
+}));
+
+app.get('/api/admin/activity-logs', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT activity_logs.id, users.name AS userName, users.email, activity_logs.action,
+            activity_logs.description, activity_logs.created_at AS createdAt
+     FROM activity_logs INNER JOIN users ON users.id = activity_logs.user_id
+     ORDER BY activity_logs.created_at DESC LIMIT 200`
+  );
+  res.json(rows);
+}));
+
 app.get('/api/notifications', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
   const [rows] = await pool.execute(
     'SELECT id, title, message, is_read AS isRead, created_at AS createdAt FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
