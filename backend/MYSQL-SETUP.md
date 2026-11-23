@@ -11,8 +11,9 @@
 
 1. Copy backend/.env.example to backend/.env.
 2. Set DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, and DB_NAME.
-3. In Firebase Console, open Project settings > Service accounts and generate a private key.
-4. Keep the service-account JSON outside the repository. Set FIREBASE_SERVICE_ACCOUNT_JSON to its complete one-line JSON value, or set GOOGLE_APPLICATION_CREDENTIALS to the private key file path.
+3. Set FIREBASE_PROJECT_ID to the same project ID used in `Handa-react/src/components/firebase.js` (`disaster-firebase-bfa1c` in this repository).
+4. In Firebase Console, open Project settings > Service accounts and generate a private key.
+5. Keep the service-account JSON outside the repository. Set FIREBASE_SERVICE_ACCOUNT_JSON to its complete one-line JSON value, or set GOOGLE_APPLICATION_CREDENTIALS to the private key file path. The backend now passes the project ID explicitly to Firebase Admin so token verification does not depend on Application Default Credentials detecting it automatically.
 5. In the backend folder run:
 
     npm install
