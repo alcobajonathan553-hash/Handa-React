@@ -570,7 +570,7 @@ app.post('/api/admin/supply-requests/:id/release', requireFirebaseUser, requireA
       );
     } else {
       await connection.execute(
-        "INSERT INTO user_supplies (user_id, name, quantity, status) VALUES (?, ?, ?, 'Ready')",
+        "INSERT INTO user_supplies (user_id, name, quantity, status, source) VALUES (?, ?, ?, 'Ready', 'lgu')",
         [request.user_id, supplies[0].name, Number(request.quantity)]
       );
     }
