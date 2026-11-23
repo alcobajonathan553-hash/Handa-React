@@ -395,6 +395,13 @@ app.delete('/api/emergency-contacts/:id', requireFirebaseUser, requireProfileId,
   res.json({ id });
 }));
 
+app.get('/api/public-supplies', requireFirebaseUser, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    'SELECT id, name, category, quantity, status, created_at FROM supplies ORDER BY id DESC'
+  );
+  res.json(rows);
+}));
+
 app.get('/api/supplies', requireFirebaseUser, requireAdmin, asyncRoute(async (req, res) => {
   const [rows] = await pool.execute(
     'SELECT id, name, category, quantity, status, created_at FROM supplies ORDER BY id DESC'
