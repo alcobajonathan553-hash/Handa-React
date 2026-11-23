@@ -175,6 +175,8 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [selectedDisaster, setSelectedDisaster] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [supplies, setSupplies] = useState(initialSupplies);
+  const [sharedSupplies, setSharedSupplies] = useState([]);
+  const [sharedSuppliesLoading, setSharedSuppliesLoading] = useState(true);
   const [tasks, setTasks] = useState(initialTasks);
   const [search, setSearch] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
@@ -184,6 +186,31 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [activities, setActivities] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSharedSupplies() {
+      try {
+        const response = await dashboardRequest('/api/public-supplies');
+        if (!response.ok) throw new Error('Hindi ma-load ang LGU emergency inventory.');
+        const data = await response.json();
+        if (active) setSharedSupplies(data);
+      } catch (error) {
+        console.error('Shared emergency inventory loading failed:', error);
+      } finally {
+        if (active) setSharedSuppliesLoading(false);
+      }
+    }
+
+    loadSharedSupplies();
+    const refreshId = window.setInterval(loadSharedSupplies, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refreshId);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -547,6 +574,8 @@ export default function Dashboard({ user, onLogout, isOnline }) {
           {activePage === 'supplies' && (
             <SuppliesPage
               supplies={supplies}
+              sharedSupplies={sharedSupplies}
+              sharedSuppliesLoading={sharedSuppliesLoading}
               onCycleSupply={cycleSupply}
               onAddSupply={addPersonalSupply}
             />
@@ -1179,7 +1208,7 @@ function ChecklistPage({ tasks, onToggleTask, percent }) {
   );
 }
 
-function SuppliesPage({ supplies, onCycleSupply, onAddSupply }) {
+function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, onCycleSupply, onAddSupply }) {
   const [newSupplyName, setNewSupplyName] = useState('');
   const [message, setMessage] = useState('');
 
@@ -1200,6 +1229,37 @@ function SuppliesPage({ supplies, onCycleSupply, onAddSupply }) {
       title="Emergency Supplies"
       description="I-monitor ang laman at status ng inyong emergency kit."
     >
+      <div className="panel page-panel mb-4">
+        <div className="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+          <div>
+            <h2 className="h5 fw-bold mb-1"><i className="bi bi-building-check me-2 text-success" />LGU Emergency Supply Inventory</h2>
+            <p className="text-secondary small mb-0">Mga supply na inilagay ng administrator. Awtomatikong nagre-refresh kada 15 segundo.</p>
+          </div>
+          <span className="badge text-bg-success">{sharedSupplies.length} items</span>
+        </div>
+        {sharedSuppliesLoading ? (
+          <div className="text-secondary small py-3"><span className="spinner-border spinner-border-sm me-2" />Loading LGU inventory...</div>
+        ) : sharedSupplies.length === 0 ? (
+          <p className="text-secondary small mb-0 py-3">Wala pang inilalagay na emergency supplies ang administrator.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead><tr><th>Supply Name</th><th>Category</th><th>Quantity</th><th>Status</th></tr></thead>
+              <tbody>
+                {sharedSupplies.map((item) => (
+                  <tr key={item.id}>
+                    <td className="fw-semibold">{item.name}</td>
+                    <td>{item.category}</td>
+                    <td>{item.quantity}</td>
+                    <td><span className={`badge ${item.status === 'Low Stock' ? 'text-bg-warning' : 'text-bg-success'}`}>{item.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <div className="panel page-panel">
         <div className="mb-4">
           <h2 className="h5 fw-bold mb-1">Aking Emergency Kit</h2>
