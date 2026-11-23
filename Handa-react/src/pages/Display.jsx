@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth } from "../components/firebase.js";
+import AdminResourceManager from "./AdminResourceManager.jsx";
 
 export default function Display({ onLogout }) {
   const [supplies, setSupplies] = useState([]);
@@ -282,6 +283,8 @@ export default function Display({ onLogout }) {
           </table>
         </div>
       </section>
+
+      <AdminResourceManager />
 
       <div className="supply-reminder p-3 p-md-4 d-flex gap-3 align-items-start">
         <i className="bi bi-info-circle-fill fs-4 text-success" />
