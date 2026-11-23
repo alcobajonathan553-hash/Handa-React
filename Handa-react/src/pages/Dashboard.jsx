@@ -413,13 +413,19 @@ export default function Dashboard({ user, onLogout, isOnline }) {
     (item) => item.status === 'Ready'
   ).length;
 
-  const preparednessScore = Math.round(
-    checklistPercent * 0.45 +
-      (supplies.length > 0
-        ? (readySupplies / supplies.length) * 100 * 0.35
-        : 0) +
-      70 * 0.2
-  );
+  const planFields = ['evacuationCenter', 'meetingPoint', 'primaryRoute', 'backupRoute'];
+  const completedPlanFields = planFields.filter((field) => String(evacuationPlan?.[field] || '').trim()).length;
+  const checklistPoints = Math.round(checklistPercent * 0.4);
+  const supplyPoints = supplies.length > 0 ? Math.round((readySupplies / supplies.length) * 25) : 0;
+  const evacuationPoints = Math.round((completedPlanFields / planFields.length) * 20);
+  const contactPoints = Math.round((Math.min(contacts.length, 3) / 3) * 15);
+  const scoreBreakdown = [
+    { label: 'Preparedness checklist', earned: checklistPoints, weight: 40 },
+    { label: 'Emergency kit readiness', earned: supplyPoints, weight: 25 },
+    { label: 'Evacuation plan', earned: evacuationPoints, weight: 20 },
+    { label: 'Emergency contacts', earned: contactPoints, weight: 15 },
+  ];
+  const preparednessScore = scoreBreakdown.reduce((total, item) => total + item.earned, 0);
 
   const filteredDisasters = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -615,6 +621,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
           {activePage === 'dashboard' && (
             <DashboardHome
               preparednessScore={preparednessScore}
+              scoreBreakdown={scoreBreakdown}
               checklistPercent={checklistPercent}
               completedTasks={completedTasks}
               supplies={supplies}
@@ -794,6 +801,7 @@ function Sidebar({
 
 function DashboardHome({
   preparednessScore,
+  scoreBreakdown,
   checklistPercent,
   completedTasks,
   supplies,
@@ -844,9 +852,25 @@ function DashboardHome({
               </h3>
 
               <p>
-                Nakatapos ka na ng {completedTasks} sa{' '}
-                {tasks.length} tasks sa iyong checklist.
-                Tuloy-tuloy lang para maging fully prepared!
+                Ang score ay kinukuha mula sa checklist, personal emergency kit, evacuation plan, at emergency contacts. Nagbabago ito kapag may na-update kang records.
+              </p>
+
+              <div className="mt-3" aria-label="Preparedness score breakdown">
+                {scoreBreakdown.map((item) => (
+                  <div className="mb-2" key={item.label}>
+                    <div className="d-flex justify-content-between small mb-1">
+                      <span>{item.label}</span>
+                      <strong>{item.earned}/{item.weight}</strong>
+                    </div>
+                    <div className="progress" style={{ height: 7 }}>
+                      <div className="progress-bar bg-success" role="progressbar" style={{ width: `${item.weight ? (item.earned / item.weight) * 100 : 0}%` }} aria-valuenow={item.earned} aria-valuemin="0" aria-valuemax={item.weight} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="small text-secondary mt-2 mb-3">
+                Checklist: {completedTasks}/{tasks.length} completed · Emergency kit: {readySupplies}/{supplies.length} Ready
               </p>
 
               <button
