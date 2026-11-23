@@ -274,3 +274,42 @@ button { cursor: pointer; }
 .disaster-title { color: #2e5b1e; font-weight: 700; font-size: 1.25rem; }
 .disaster-link { color: #2e5b1e; text-decoration: underline; font-weight: 600; font-size: .9rem; }
 .top-gov-banner { background-color: #f1f1f1; font-size: .8rem; padding: 4px 0; }
+
+
+/* Emergency Contacts page refresh */
+.emergency-form-panel { border-radius: 18px; padding: 26px; border-color: #dce9df; box-shadow: 0 10px 28px rgba(31,107,75,.07); }
+.emergency-section-heading { display: flex; align-items: center; gap: 13px; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--handa-border); }
+.emergency-heading-icon { width: 46px; height: 46px; flex: 0 0 46px; display: grid; place-items: center; border-radius: 14px; background: linear-gradient(145deg,#e8f5eb,#d8eddf); color: var(--handa-green); font-size: 1.2rem; }
+.emergency-section-heading h3 { color: var(--handa-text); }
+.emergency-section-heading p { color: var(--handa-muted); font-size: .72rem; }
+.emergency-contact-form .form-label { color: var(--handa-text); font-size: .72rem; font-weight: 750; margin-bottom: 7px; }
+.emergency-contact-form .form-control, .emergency-contact-form .form-select { min-height: 44px; border-radius: 10px; background-color: #fbfdfb; border-color: #dce7df; font-size: .78rem; }
+.emergency-contact-form .form-control:focus, .emergency-contact-form .form-select:focus, .emergency-search-panel .form-control:focus, .emergency-search-panel .form-select:focus { border-color: #75a98a; box-shadow: 0 0 0 .2rem rgba(31,107,75,.12); }
+.emergency-submit-btn { min-height: 43px; padding: 10px 20px; border-radius: 10px; }
+.emergency-search-panel { border-radius: 16px; padding: 20px 22px; }
+.emergency-search-panel .form-label { font-size: .7rem; font-weight: 750; color: var(--handa-text); }
+.emergency-search-panel .form-control, .emergency-search-panel .form-select { min-height: 42px; border-radius: 10px; font-size: .76rem; }
+.emergency-contact-count { display: flex; align-items: center; gap: 9px; color: var(--handa-muted); font-size: .7rem; }
+.emergency-contact-count > i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--handa-green-soft); color: var(--handa-green); }
+.emergency-contact-count strong { color: var(--handa-green); font-size: .9rem; }
+.contact-page-grid { align-items: stretch; }
+.emergency-contact-card { display: flex; flex-direction: column; align-items: stretch; gap: 0; border-radius: 16px; padding: 19px !important; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.emergency-contact-card:hover { transform: translateY(-3px); border-color: #b9d5c2; box-shadow: 0 12px 25px rgba(31,107,75,.09); }
+.emergency-contact-card > .d-flex:first-child { align-items: flex-start !important; }
+.emergency-contact-avatar { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; border-radius: 15px; background: linear-gradient(145deg,#e8f5eb,#d9eddf); color: var(--handa-green); font-size: 1.35rem; }
+.emergency-contact-card strong { font-size: .88rem; color: var(--handa-text); }
+.emergency-contact-phone { color: var(--handa-green) !important; font-weight: 750; font-size: .78rem !important; margin-top: 6px !important; letter-spacing: .02em; }
+.emergency-contact-meta { display: inline-block; margin-top: 7px; font-size: .65rem; }
+.emergency-primary-badge { background: #fff4d9; color: #936318; border: 1px solid #f2dfad; font-size: .58rem; font-weight: 750; }
+.emergency-contact-actions { padding-top: 13px; border-top: 1px solid #edf2ee; }
+.emergency-contact-actions .btn { border-radius: 8px; font-size: .64rem; font-weight: 700; padding: 7px 10px; }
+.dark-mode .emergency-form-panel, .dark-mode .emergency-search-panel, .dark-mode .emergency-contact-card { background: var(--handa-card); border-color: var(--handa-border); }
+.dark-mode .emergency-contact-form .form-control, .dark-mode .emergency-contact-form .form-select, .dark-mode .emergency-search-panel .form-control, .dark-mode .emergency-search-panel .form-select { background: #19231d; color: var(--handa-text); border-color: #3a4b40; }
+.dark-mode .emergency-heading-icon, .dark-mode .emergency-contact-avatar { background: #294333; color: #a8d8b7; }
+.dark-mode .emergency-contact-actions { border-color: #344139; }
+@media (max-width: 767px) {
+  .emergency-form-panel { padding: 18px; }
+  .emergency-search-panel { padding: 17px; }
+  .emergency-contact-card { padding: 16px !important; }
+  .emergency-contact-actions .btn { flex: 1 1 auto; }
+}
