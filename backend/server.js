@@ -684,6 +684,36 @@ app.patch('/api/notifications/:id/read', requireFirebaseUser, requireProfileId, 
   res.json({ id, isRead: true });
 }));
 
+
+app.get('/api/disaster-assessments', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT id, disaster_key AS disasterKey, score, answers, created_at AS createdAt
+     FROM disaster_assessments WHERE user_id = ? ORDER BY created_at DESC`,
+    [req.mysqlUserId]
+  );
+  res.json(rows.map((row) => ({
+    ...row,
+    score: Number(row.score),
+    answers: typeof row.answers === 'string' ? JSON.parse(row.answers) : row.answers
+  })));
+}));
+
+app.post('/api/disaster-assessments', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
+  const { disasterKey, score, answers } = req.body || {};
+  const allowedKeys = ['bagyo', 'baha', 'lindol', 'sunog', 'kuryente', 'bulkan', 'landslide', 'tsunami'];
+  if (!allowedKeys.includes(disasterKey) || !Number.isInteger(score) || score < 0 || score > 100 || !Array.isArray(answers) || answers.length !== 5) {
+    return res.status(400).json({ message: 'Invalid disaster assessment details.' });
+  }
+  if (!answers.every((answer) => ['yes', 'no', 'unsure'].includes(answer))) {
+    return res.status(400).json({ message: 'Please answer all assessment questions.' });
+  }
+  const [result] = await pool.execute(
+    'INSERT INTO disaster_assessments (user_id, disaster_key, score, answers) VALUES (?, ?, ?, ?)',
+    [req.mysqlUserId, disasterKey, score, JSON.stringify(answers)]
+  );
+  res.status(201).json({ id: result.insertId, disasterKey, score, answers, message: 'Assessment saved.' });
+}));
+
 app.get('/api/activity-logs', requireFirebaseUser, requireProfileId, asyncRoute(async (req, res) => {
   const [rows] = await pool.execute(
     'SELECT id, action, description, created_at AS createdAt FROM activity_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
