@@ -851,47 +851,49 @@ function DashboardHome({
           <SectionTitle
             icon="bi-backpack4"
             title="Emergency Kit Tracker"
-            text="I-manage ang iyong go-bag at mga essential supplies."
+            text="Live inventory mula sa administrator. Awtomatikong nag-a-update kada 15 segundo."
             action="I-manage"
             onAction={() => navigate('supplies')}
           />
 
           <div className="supply-progress">
             <strong>
-              {readySupplies} / {supplies.length + 7} items ang ready na
+              {sharedSupplies.filter((item) => item.status !== 'Low Stock').length} / {sharedSupplies.length} LGU supplies available
             </strong>
 
             <div className="progress">
               <div
                 className="progress-bar"
                 style={{
-                  width: `${Math.max(
-                    15,
-                    (readySupplies / 12) * 100
-                  )}%`,
+                  width: `${sharedSupplies.length
+                    ? Math.max(15, (sharedSupplies.filter((item) => item.status !== 'Low Stock').length / sharedSupplies.length) * 100)
+                    : 0}%`,
                 }}
               />
             </div>
           </div>
 
           <div className="supply-list">
-            {supplies.map((item) => (
-              <button
-                className="supply-row"
-                key={item.id}
-                onClick={() => onCycleSupply(item.id)}
-              >
-                <i className={`bi ${item.icon}`} />
-
-                <span>{item.name}</span>
-
-                <em
-                  className={`badge-status ${item.status.toLowerCase()}`}
-                >
-                  {item.status}
-                </em>
-              </button>
-            ))}
+            {sharedSuppliesLoading ? (
+              <div className="text-secondary small py-3">
+                <span className="spinner-border spinner-border-sm me-2" />Loading admin supplies...
+              </div>
+            ) : sharedSupplies.length === 0 ? (
+              <p className="text-secondary small py-3 mb-0">Wala pang emergency supplies na inilalagay ang administrator.</p>
+            ) : (
+              sharedSupplies.slice(0, 6).map((item) => (
+                <div className="supply-row" key={item.id}>
+                  <i className="bi bi-box-seam" />
+                  <span className="flex-grow-1">
+                    {item.name}
+                    <small className="d-block text-secondary">{item.category} · Qty: {item.quantity}</small>
+                  </span>
+                  <em className={`badge-status ${item.status === 'Low Stock' ? 'check' : 'ready'}`}>
+                    {item.status === 'Low Stock' ? 'Check' : 'Available'}
+                  </em>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
