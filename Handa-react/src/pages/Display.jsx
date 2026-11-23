@@ -152,7 +152,8 @@ export default function Display() {
         .supply-card .supply-table thead th { padding: 15px 14px; }
         .supply-card .supply-table tbody td { padding: 17px 14px; }
         .supply-card .supply-table tbody tr:last-child td { border-bottom: 0; }
-        .supply-card .supply-table .supply-actions { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .supply-card .supply-table .supply-actions { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: nowrap; width: 100%; margin: 0 auto; }
+        .supply-card .supply-table .supply-actions-cell { text-align: center !important; vertical-align: middle; }
         .supply-card .supply-table .supply-action { min-width: 78px; margin: 0 !important; }
         @media (max-width: 767.98px) {
           .supply-card .table-responsive { padding: 0 12px 12px; }
@@ -262,9 +263,11 @@ export default function Display() {
                     <td><span className="supply-category">{supply.category}</span></td>
                     <td><span className="supply-quantity">{supply.quantity}</span></td>
                     <td><span className={`supply-status ${isLowStock ? "supply-low-stock" : "supply-in-stock"}`}><i className={`bi ${isLowStock ? "bi-exclamation-circle-fill" : "bi-check-circle-fill"}`} />{status}</span></td>
-                    <td className="text-center text-nowrap">
-                      <button type="button" className="btn btn-sm btn-outline-success supply-action me-2" onClick={() => openEditModal(supply)}><i className="bi bi-pencil me-1" />Edit</button>
-                      <button type="button" className="btn btn-sm btn-outline-danger supply-action" onClick={() => handleDelete(supply.id)}><i className="bi bi-trash me-1" />Delete</button>
+                    <td className="supply-actions-cell">
+                      <div className="supply-actions">
+                        <button type="button" className="btn btn-sm btn-outline-success supply-action" onClick={() => openEditModal(supply)}><i className="bi bi-pencil me-1" />Edit</button>
+                        <button type="button" className="btn btn-sm btn-outline-danger supply-action" onClick={() => handleDelete(supply.id)}><i className="bi bi-trash me-1" />Delete</button>
+                      </div>
                     </td>
                   </tr>
                 );
