@@ -208,6 +208,22 @@ export default function Dashboard({ user, onLogout, isOnline }) {
       }
     }
 
+    async function loadMyPersonalKit() {
+      try {
+        const response = await dashboardRequest('/api/user-supplies');
+        if (!response.ok) throw new Error('Hindi ma-refresh ang iyong emergency kit.');
+        const data = await response.json();
+        if (active) {
+          setSupplies(getUniqueSupplies(data).map((item, index) => ({
+            ...item,
+            icon: ['bi-droplet-fill', 'bi-bandaid-fill', 'bi-flashlight-fill', 'bi-battery-half', 'bi-broadcast-pin'][index % 5]
+          })));
+        }
+      } catch (error) {
+        console.error('Personal emergency kit refresh failed:', error);
+      }
+    }
+
     async function loadSharedSupplies() {
       try {
         const response = await dashboardRequest('/api/public-supplies');
@@ -223,9 +239,11 @@ export default function Dashboard({ user, onLogout, isOnline }) {
 
     loadSharedSupplies();
     loadMySupplyRequests();
+    loadMyPersonalKit();
     const refreshId = window.setInterval(() => {
       loadSharedSupplies();
       loadMySupplyRequests();
+      loadMyPersonalKit();
     }, 15000);
 
     return () => {
