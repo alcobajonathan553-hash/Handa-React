@@ -591,7 +591,7 @@ app.post('/api/admin/supply-requests/:id/release', requireFirebaseUser, requireA
 
 app.get('/api/public-supplies', requireFirebaseUser, asyncRoute(async (req, res) => {
   const [rows] = await pool.execute(
-    'SELECT id, name, category, quantity, status, created_at FROM supplies ORDER BY id DESC'
+    "SELECT id, name, category, quantity, CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 15 THEN 'Low Stock' ELSE 'Available' END AS status, created_at FROM supplies ORDER BY id DESC"
   );
   res.json(rows);
 }));
