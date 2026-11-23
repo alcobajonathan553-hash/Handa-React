@@ -738,6 +738,8 @@ function DashboardHome({
   contacts,
   evacuationPlan,
   activities,
+  sharedSupplies = [],
+  sharedSuppliesLoading = false,
 }) {
   return (
     <>
