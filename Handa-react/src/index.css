@@ -313,3 +313,65 @@ button { cursor: pointer; }
   .emergency-contact-card { padding: 16px !important; }
   .emergency-contact-actions .btn { flex: 1 1 auto; }
 }
+
+
+/* Emergency Checklist refresh */
+.checklist-overview { border: 1px solid #dcebe0; border-radius: 18px; padding: 25px; background: linear-gradient(135deg,#f5fbf6 0%,#fff 72%); }
+.checklist-overview-top { display:flex; align-items:center; gap:16px; }
+.checklist-overview-icon { width:54px;height:54px;flex:0 0 54px;display:grid;place-items:center;border-radius:17px;background:#e2f2e7;color:#21804d;font-size:1.45rem; }
+.checklist-eyebrow { font-size:.62rem;letter-spacing:.12em;font-weight:800;color:#26804e; }
+.checklist-overview h2 { margin:4px 0 5px;font-size:1.08rem;font-weight:800;color:var(--handa-text); }
+.checklist-overview p { margin:0;color:var(--handa-muted);font-size:.75rem; }
+.checklist-percent { margin-left:auto;white-space:nowrap;font-size:2rem;font-weight:850;color:#21804d;line-height:1; }
+.checklist-percent small { font-size:.85rem;margin-left:2px; }
+.checklist-progress-track { height:10px;margin-top:22px;border-radius:20px;background:#e7eee9;overflow:hidden; }
+.checklist-progress-fill { height:100%;border-radius:20px;background:linear-gradient(90deg,#23834e,#6fbd80);transition:width .25s ease; }
+.checklist-stats { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:19px; }
+.checklist-stats > div { display:flex;flex-direction:column;gap:3px;padding:11px 13px;border:1px solid #e7eee9;border-radius:12px;background:rgba(255,255,255,.75); }
+.checklist-stats strong { font-size:1.05rem;color:var(--handa-text); }
+.checklist-stats span { color:var(--handa-muted);font-size:.66rem; }
+.checklist-list-panel { border-radius:18px;padding:23px; }
+.checklist-list-heading { display:flex;justify-content:space-between;align-items:flex-start;gap:15px;flex-wrap:wrap; }
+.checklist-list-heading h3 { color:var(--handa-text); }
+.checklist-bulk-actions { display:flex;gap:7px;flex-wrap:wrap; }
+.checklist-bulk-actions .btn { border-radius:9px;font-size:.68rem;font-weight:700; }
+.checklist-filters { display:flex;gap:7px;flex-wrap:wrap;margin:19px 0 12px;padding-bottom:14px;border-bottom:1px solid var(--handa-border); }
+.checklist-filters button { border:1px solid var(--handa-border);background:transparent;color:var(--handa-muted);border-radius:20px;padding:7px 12px;font-size:.68rem;font-weight:700; }
+.checklist-filters button.active { background:#e8f5eb;border-color:#c7e5d0;color:#207849; }
+.checklist-filters button span { display:inline-grid;place-items:center;min-width:19px;height:19px;margin-left:4px;padding:0 5px;border-radius:12px;background:rgba(0,0,0,.06);font-size:.6rem; }
+.checklist-task-list { display:flex;flex-direction:column; }
+.checklist-task-row { position:relative;display:flex;align-items:center;gap:12px;padding:14px 8px;border-bottom:1px solid var(--handa-border);cursor:pointer;transition:background .15s ease; }
+.checklist-task-row:last-child { border-bottom:0; }
+.checklist-task-row:hover { background:rgba(40,130,77,.045); }
+.checklist-task-row input { position:absolute;opacity:0;width:1px;height:1px; }
+.checklist-custom-check { width:22px;height:22px;flex:0 0 22px;display:grid;place-items:center;border:1.5px solid #b8c9bd;border-radius:7px;color:transparent; }
+.checklist-task-row input:checked + .checklist-custom-check { border-color:#23834e;background:#23834e;color:#fff; }
+.checklist-task-row input:focus-visible + .checklist-custom-check { outline:3px solid rgba(35,131,78,.2);outline-offset:2px; }
+.checklist-task-copy { display:flex;flex-direction:column;gap:4px;min-width:0;flex:1; }
+.checklist-task-copy strong { color:var(--handa-text);font-size:.78rem;font-weight:750; }
+.checklist-task-copy small { color:var(--handa-muted);font-size:.65rem; }
+.checklist-task-row.is-done .checklist-task-copy strong { color:var(--handa-muted); }
+.checklist-task-status { white-space:nowrap;border-radius:20px;padding:5px 9px;font-size:.59rem;font-weight:750; }
+.checklist-task-status.done { color:#217648;background:#e7f5eb; }
+.checklist-task-status.pending { color:#946b20;background:#fff5df; }
+.checklist-filter-empty { display:flex;align-items:center;flex-direction:column;gap:7px;padding:35px 15px;text-align:center;color:var(--handa-muted); }
+.checklist-filter-empty i { font-size:1.8rem;color:#318653; }
+.checklist-filter-empty strong { color:var(--handa-text);font-size:.8rem; }
+.checklist-filter-empty span { font-size:.68rem; }
+.dark-mode .checklist-overview { background:linear-gradient(135deg,#1b2b21,#202b24);border-color:var(--handa-border); }
+.dark-mode .checklist-overview-icon { background:#294333;color:#a8d8b7; }
+.dark-mode .checklist-progress-track { background:#35443a; }
+.dark-mode .checklist-stats > div { background:#202b24;border-color:var(--handa-border); }
+.dark-mode .checklist-filters button.active { background:#294333;border-color:#41664c;color:#b6e1c1; }
+.dark-mode .checklist-task-status.done { background:#294333;color:#b6e1c1; }
+.dark-mode .checklist-task-status.pending { background:#473a23;color:#f0d28f; }
+@media(max-width:600px) {
+ .checklist-overview,.checklist-list-panel { padding:17px; }
+ .checklist-overview-top { align-items:flex-start;gap:11px; }
+ .checklist-overview-icon { width:43px;height:43px;flex-basis:43px;border-radius:13px; }
+ .checklist-percent { font-size:1.6rem; }
+ .checklist-stats { gap:6px; }
+ .checklist-stats > div { padding:9px 8px; }
+ .checklist-task-row { gap:9px;padding:13px 3px; }
+ .checklist-task-status { font-size:.54rem;padding:4px 7px; }
+}
