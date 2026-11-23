@@ -175,6 +175,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [selectedDisaster, setSelectedDisaster] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [supplies, setSupplies] = useState(initialSupplies);
+  const [lguKit, setLguKit] = useState([]);
   const [sharedSupplies, setSharedSupplies] = useState([]);
   const [sharedSuppliesLoading, setSharedSuppliesLoading] = useState(true);
   const [supplyRequests, setSupplyRequests] = useState([]);
@@ -224,6 +225,17 @@ export default function Dashboard({ user, onLogout, isOnline }) {
       }
     }
 
+    async function loadMyLguKit() {
+      try {
+        const response = await dashboardRequest('/api/my-lgu-kit');
+        if (!response.ok) throw new Error('Hindi ma-load ang supplies na inilabas ng LGU.');
+        const data = await response.json();
+        if (active) setLguKit(getUniqueSupplies(data));
+      } catch (error) {
+        console.error('LGU emergency kit loading failed:', error);
+      }
+    }
+
     async function loadSharedSupplies() {
       try {
         const response = await dashboardRequest('/api/public-supplies');
@@ -240,10 +252,12 @@ export default function Dashboard({ user, onLogout, isOnline }) {
     loadSharedSupplies();
     loadMySupplyRequests();
     loadMyPersonalKit();
+    loadMyLguKit();
     const refreshId = window.setInterval(() => {
       loadSharedSupplies();
       loadMySupplyRequests();
       loadMyPersonalKit();
+      loadMyLguKit();
     }, 15000);
 
     return () => {
@@ -631,13 +645,11 @@ export default function Dashboard({ user, onLogout, isOnline }) {
 
           {activePage === 'supplies' && (
             <SuppliesPage
-              supplies={supplies}
+              lguKit={lguKit}
               sharedSupplies={sharedSupplies}
               sharedSuppliesLoading={sharedSuppliesLoading}
               supplyRequests={supplyRequests}
               onSubmitSupplyRequest={submitSupplyRequest}
-              onCycleSupply={cycleSupply}
-              onAddSupply={addPersonalSupply}
             />
           )}
 
@@ -1273,9 +1285,7 @@ function ChecklistPage({ tasks, onToggleTask, percent }) {
   );
 }
 
-function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, supplyRequests = [], onSubmitSupplyRequest, onCycleSupply, onAddSupply }) {
-  const [newSupplyName, setNewSupplyName] = useState('');
-  const [message, setMessage] = useState('');
+function SuppliesPage({ lguKit = [], sharedSupplies, sharedSuppliesLoading, supplyRequests = [], onSubmitSupplyRequest }) {
   const [requestQuantities, setRequestQuantities] = useState({});
   const [requestMessage, setRequestMessage] = useState('');
   const [requestingSupplyId, setRequestingSupplyId] = useState(null);
@@ -1386,40 +1396,35 @@ function SuppliesPage({ supplies, sharedSupplies, sharedSuppliesLoading, supplyR
       </div>
 
       <div className="panel page-panel">
-        <div className="mb-4">
-          <h2 className="h5 fw-bold mb-1">Aking Emergency Kit</h2>
-          <p className="text-secondary small mb-3">I-update ang status o magdagdag ng item sa iyong personal emergency kit.</p>
-          <form className="row g-2" onSubmit={handleAddSupply}>
-            <div className="col-12 col-md-8">
-              <input className="form-control" value={newSupplyName} onChange={(event) => setNewSupplyName(event.target.value)} placeholder="Pangalan ng bagong supply" maxLength="150" required />
-            </div>
-            <div className="col-12 col-md-4 d-grid">
-              <button className="btn btn-handa" type="submit">+ Magdagdag ng Supply</button>
-            </div>
-          </form>
-          {message && <p className="small text-secondary mt-2 mb-0">{message}</p>}
+        <div className="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+          <div>
+            <h2 className="h5 fw-bold mb-1"><i className="bi bi-backpack4 me-2 text-success" />Aking Emergency Kit</h2>
+            <p className="text-secondary small mb-0">Dito lang makikita ang mga emergency supply na inilabas ng administrator para sa iyo. Awtomatikong nag-a-update kada 15 segundo.</p>
+          </div>
+          <span className="badge text-bg-success">{lguKit.length} released items</span>
         </div>
-
-        <div className="supply-table">
-          {supplies.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onCycleSupply(item.id)}
-            >
-              <i className={`bi ${item.icon}`} />
-
-              <strong>{item.name}</strong>
-
-              <span
-                className={`badge-status ${item.status.toLowerCase()}`}
-              >
-                {item.status}
-              </span>
-
-              <i className="bi bi-chevron-right" />
-            </button>
-          ))}
-        </div>
+        {lguKit.length === 0 ? (
+          <div className="text-center py-4">
+            <i className="bi bi-backpack2 display-5 text-secondary" />
+            <h3 className="h6 fw-bold mt-3">Wala pang na-release na supply</h3>
+            <p className="text-secondary small mb-0">Pumili ng item sa LGU Emergency Supply Inventory, magsumite ng request, at hintayin ang approval at release ng administrator. Lalabas dito ang supply pagkatapos itong i-release.</p>
+          </div>
+        ) : (
+          <div className="row g-3">
+            {lguKit.map((item) => (
+              <div className="col-12 col-sm-6 col-lg-4" key={item.id}>
+                <div className="border rounded-3 p-3 h-100 d-flex align-items-center gap-3">
+                  <div className="rounded-circle bg-success-subtle text-success p-3"><i className="bi bi-box-seam fs-5" /></div>
+                  <div className="flex-grow-1 min-w-0">
+                    <strong className="d-block text-break">{item.name}</strong>
+                    <span className="small text-secondary">Quantity: {Number(item.quantity || 0)}</span>
+                    <div><span className="badge text-bg-success mt-1">Released by LGU</span></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </PageShell>
   );
