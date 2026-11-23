@@ -1576,7 +1576,7 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('Family');
-  const [relationship, setRelasyon] = useState('');
+  const [relationship, setRelationship] = useState('');
   const [notes, setNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
@@ -1647,7 +1647,7 @@ function ContactsPage({ onContactsChanged, onActivityAdded }) {
           <div className="col-md-4"><label className="form-label">Pangalan ng Contact</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength="100" required placeholder="Hal. Juan Dela Cruz" /></div>
           <div className="col-md-4"><label className="form-label">Numero ng Telepono</label><input className="form-control" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength="30" required placeholder="09XX XXX XXXX" /></div>
           <div className="col-md-2"><label className="form-label">Category</label><select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="Family">Pamilya</option><option value="Medical">Medikal</option><option value="Emergency">Emergency</option><option value="Other">Iba pa</option></select></div>
-          <div className="col-md-4"><label className="form-label">Relationship</label><input className="form-control" value={relationship} onChange={(e) => setRelationship(e.target.value)} maxLength="80" placeholder="Hal. Nanay, kapitbahay, doktor" /></div>
+          <div className="col-md-4"><label className="form-label">Ugnayan sa Contact</label><input className="form-control" value={relationship} onChange={(e) => setRelationship(e.target.value)} maxLength="80" placeholder="Hal. Anak, kapatid, kapitbahay, doktor" /></div>
           <div className="col-md-8"><label className="form-label">Mga Paalala / Mahalagang Tagubilin</label><input className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength="500" placeholder="Hal. may allergy, espesyal na pangangailangan, o ibang dapat tandaan" /></div>
           <div className="col-12 d-flex gap-2"><button className="btn btn-handa" type="submit"><i className="bi bi-person-plus-fill me-1" />{editingId ? 'I-save ang Pagbabago' : 'Idagdag ang Contact'}</button>{editingId && <button className="btn btn-outline-secondary" type="button" onClick={() => { setEditingId(null); setName(''); setPhone(''); setCategory('Family'); setRelationship(''); setNotes(''); }}>Kanselahin</button>}</div>
         </form>
