@@ -1248,61 +1248,85 @@ function DashboardHome({
 }
 
 function ChecklistPage({ tasks, onToggleTask, percent }) {
+  const [filter, setFilter] = useState('all');
+  const completedCount = tasks.filter((task) => task.done).length;
+  const pendingCount = tasks.length - completedCount;
+  const visibleTasks = tasks.filter((task) => {
+    if (filter === 'done') return task.done;
+    if (filter === 'pending') return !task.done;
+    return true;
+  });
+
+  function updateAllTasks(shouldComplete) {
+    tasks.forEach((task) => {
+      if (task.done !== shouldComplete) onToggleTask(task.id);
+    });
+  }
+
   return (
     <PageShell
       icon="bi-check2-square"
       title="Emergency Checklist"
-      description="I-track ang mga kailangang aksyon bago dumating ang anumang emergency."
+      description="Sundan ang mga hakbang na ito para mas handa ang iyong pamilya bago, habang, at pagkatapos ng sakuna."
     >
-      <div className="panel page-panel">
-        <div className="large-progress">
-          <div>
-            <strong>{percent}% ang nakumpleto</strong>
-
-            <span>
-              {tasks.filter((t) => t.done).length} sa {tasks.length}{' '}
-              tasks ang natapos na
-            </span>
+      <div className="checklist-overview panel page-panel mb-4">
+        <div className="checklist-overview-top">
+          <div className="checklist-overview-icon"><i className="bi bi-shield-check" /></div>
+          <div className="flex-grow-1">
+            <span className="checklist-eyebrow">PAGIGING HANDA</span>
+            <h2>{percent === 100 ? 'Handa na ang iyong checklist!' : 'Unti-unting maghanda, isang hakbang sa bawat pagkakataon.'}</h2>
+            <p>{completedCount} sa {tasks.length} gawain ang natapos. {pendingCount > 0 ? 'Tapusin ang natitirang gawain para mas maging handa.' : 'Mahusay! Panatilihing updated ang iyong mga paghahanda.'}</p>
           </div>
+          <div className="checklist-percent">{percent}<small>%</small></div>
+        </div>
+        <div className="checklist-progress-track">
+          <div className="checklist-progress-fill" style={{ width: `${percent}%` }} />
+        </div>
+        <div className="checklist-stats">
+          <div><strong>{completedCount}</strong><span>Nagawa na</span></div>
+          <div><strong>{pendingCount}</strong><span>Kailangan pa</span></div>
+          <div><strong>{tasks.length}</strong><span>Kabuuang gawain</span></div>
+        </div>
+      </div>
 
-          <div className="progress">
-            <div
-              className="progress-bar"
-              style={{
-                width: `${percent}%`,
-              }}
-            />
+      <div className="panel page-panel checklist-list-panel">
+        <div className="checklist-list-heading">
+          <div>
+            <h3 className="h5 fw-bold mb-1">Mga Gawain sa Paghahanda</h3>
+            <p className="small text-secondary mb-0">Pindutin ang checkbox kapag natapos mo na ang isang gawain.</p>
+          </div>
+          <div className="checklist-bulk-actions">
+            <button type="button" className="btn btn-sm btn-outline-success" onClick={() => updateAllTasks(true)} disabled={pendingCount === 0}>Markahan lahat</button>
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => updateAllTasks(false)} disabled={completedCount === 0}>I-reset</button>
           </div>
         </div>
 
-        <div className="full-task-list">
-          {tasks.map((task) => (
-            <label key={task.id}>
-              <input
-                type="checkbox"
-                checked={task.done}
-                onChange={() => onToggleTask(task.id)}
-              />
+        <div className="checklist-filters" role="group" aria-label="Salain ang checklist">
+          <button type="button" className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>Lahat <span>{tasks.length}</span></button>
+          <button type="button" className={filter === 'pending' ? 'active' : ''} onClick={() => setFilter('pending')}>Kailangan pa <span>{pendingCount}</span></button>
+          <button type="button" className={filter === 'done' ? 'active' : ''} onClick={() => setFilter('done')}>Nagawa na <span>{completedCount}</span></button>
+        </div>
 
-              <span>
+        <div className="checklist-task-list">
+          {visibleTasks.length > 0 ? visibleTasks.map((task, index) => (
+            <label className={`checklist-task-row ${task.done ? 'is-done' : ''}`} key={task.id}>
+              <input type="checkbox" checked={task.done} onChange={() => onToggleTask(task.id)} />
+              <span className="checklist-custom-check"><i className="bi bi-check-lg" /></span>
+              <span className="checklist-task-copy">
                 <strong>{task.text}</strong>
-
-                <small>
-                  {task.done
-                    ? 'Nagawa na'
-                    : 'Kailangan pa ng aksyon'}
-                </small>
+                <small>{task.done ? 'Tapos na ang gawaing ito' : 'Markahan kapag natapos na'}</small>
               </span>
-
-              <i
-                className={`bi ${
-                  task.done
-                    ? 'bi-check-circle-fill'
-                    : 'bi-circle'
-                }`}
-              />
+              <span className={`checklist-task-status ${task.done ? 'done' : 'pending'}`}>
+                {task.done ? 'Nagawa na' : 'Kailangan pa'}
+              </span>
             </label>
-          ))}
+          )) : (
+            <div className="checklist-filter-empty">
+              <i className={filter === 'done' ? 'bi bi-clipboard-check' : 'bi bi-check2-circle'} />
+              <strong>{filter === 'done' ? 'Wala pang natatapos na gawain' : 'Wala nang nakabinbing gawain'}</strong>
+              <span>{filter === 'done' ? 'Lalabas dito ang mga gawaing mamarkahan mong tapos na.' : 'Magaling! Natapos mo na ang lahat ng gawain.'}</span>
+            </div>
+          )}
         </div>
       </div>
     </PageShell>
