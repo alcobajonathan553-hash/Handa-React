@@ -187,6 +187,12 @@ export default function Dashboard({ user, onLogout, isOnline }) {
   const [activities, setActivities] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const clockId = window.setInterval(() => setCurrentDateTime(new Date()), 1000);
+    return () => window.clearInterval(clockId);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -547,8 +553,8 @@ export default function Dashboard({ user, onLogout, isOnline }) {
             </button>
 
             <div className="date-block d-none d-xl-block">
-              <strong>September 15, 2025</strong>
-              <span>10:24 AM</span>
+              <strong>{currentDateTime?.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+              <span>{currentDateTime?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span>
             </div>
           </div>
           {notificationOpen && (
@@ -593,6 +599,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               activities={activities}
               sharedSupplies={sharedSupplies}
               sharedSuppliesLoading={sharedSuppliesLoading}
+              currentDateTime={currentDateTime}
             />
           )}
 
@@ -773,6 +780,7 @@ function DashboardHome({
   activities,
   sharedSupplies = [],
   sharedSuppliesLoading = false,
+  currentDateTime,
 }) {
   return (
     <>
@@ -829,40 +837,40 @@ function DashboardHome({
             text="Mabilis na tingin sa iyong mga preparedness alerts."
           />
 
-          <div className="safe-status">
-            <i className="bi bi-check-circle-fill" />
+          {(() => {
+            const notReadyCount = supplies.filter((item) => item.status !== 'Ready').length;
+            const planFields = ['evacuationCenter', 'meetingPoint', 'primaryRoute', 'backupRoute'];
+            const missingPlanFields = planFields.filter((field) => !String(evacuationPlan?.[field] || '').trim()).length;
+            const planComplete = missingPlanFields === 0;
+            const hasAttention = notReadyCount > 0 || !planComplete;
+            return (
+              <>
+                <div className="safe-status">
+                  <i className={hasAttention ? "bi bi-shield-exclamation" : "bi bi-check-circle-fill"} />
 
-            <div>
-              <strong>Walang Aktibong Emergency</strong>
-              <span>
-                Gamitin ang dashboard na ito para sa pagpaplano at
-                pag-update ng records.
-              </span>
-            </div>
-          </div>
+                  <div>
+                    <strong>{hasAttention ? 'May mga preparedness task na kailangan' : 'Maayos ang iyong preparedness records'}</strong>
+                    <span>Dashboard status batay sa iyong saved emergency kit at evacuation plan. Hindi ito real-time official emergency alert feed.</span>
+                  </div>
+                </div>
 
-          <div className="attention">
-            <i className="bi bi-exclamation-triangle-fill" />
-
-            <div>
-              <strong>Kailangan ng iyong pansin</strong>
-
-              <ul>
-                <li>
-                  {
-                    supplies.filter(
-                      (s) => s.status !== 'Ready'
-                    ).length
-                  }{' '}
-                  supply items ang kailangang i-check
-                </li>
-
-                <li>
-                  Kailangang kumpletuhin ang iyong evacuation plan
-                </li>
-              </ul>
-            </div>
-          </div>
+                <div className="attention">
+                  <i className="bi bi-exclamation-triangle-fill" />
+                  <div>
+                    <strong>Kailangan ng iyong pansin</strong>
+                    <ul className="mb-2">
+                      <li>{notReadyCount} supply {notReadyCount === 1 ? 'item' : 'items'} ang kailangang i-check</li>
+                      <li>{planComplete ? 'Kumpleto ang evacuation plan fields' : `Kulang ang ${missingPlanFields} evacuation plan field(s)`}</li>
+                    </ul>
+                    <div className="d-flex flex-wrap gap-2">
+                      {notReadyCount > 0 && <button className="btn btn-sm btn-outline-handa" onClick={() => navigate('supplies')}>Check Emergency Kit</button>}
+                      {!planComplete && <button className="btn btn-sm btn-outline-handa" onClick={() => navigate('evacuation')}>Complete Evacuation Plan</button>}
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         <div className="quote-card">
