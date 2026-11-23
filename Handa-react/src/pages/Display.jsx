@@ -147,7 +147,17 @@ export default function Display() {
         .supply-table th:nth-child(4), .supply-table td:nth-child(4) { width: 12%; }
         .supply-table th:nth-child(5), .supply-table td:nth-child(5) { width: 16%; }
         .supply-table th:nth-child(6), .supply-table td:nth-child(6) { width: 20%; }
-        .supply-card .table-responsive { width: 100%; overflow-x: auto; }
+        .supply-card .table-responsive { width: 100%; max-width: 100%; overflow-x: auto; padding: 0 22px 18px; }
+        .supply-card .supply-table { display: table; width: 100% !important; min-width: 100% !important; max-width: 100%; table-layout: fixed; margin: 0; }
+        .supply-card .supply-table thead th { padding: 15px 14px; }
+        .supply-card .supply-table tbody td { padding: 17px 14px; }
+        .supply-card .supply-table tbody tr:last-child td { border-bottom: 0; }
+        .supply-card .supply-table .supply-actions { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .supply-card .supply-table .supply-action { min-width: 78px; margin: 0 !important; }
+        @media (max-width: 767.98px) {
+          .supply-card .table-responsive { padding: 0 12px 12px; }
+          .supply-card .supply-table { min-width: 760px !important; width: 760px !important; table-layout: auto; }
+        }
         .supply-table .supply-action { padding: 7px 10px; }
         .supply-id { display: inline-flex; min-width: 32px; height: 30px; align-items: center; justify-content: center; border-radius: 8px; background: #f0f4f1; color: #52665a; font-weight: 700; font-size: .8rem; }
         .supply-name-icon { width: 36px; height: 36px; border-radius: 10px; background: #eaf6ee; color: #16834a; display: inline-grid; place-items: center; flex-shrink: 0; }
