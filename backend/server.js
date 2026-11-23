@@ -30,15 +30,34 @@ function initializeFirebaseAdmin() {
   if (admin.apps.length) return true;
 
   try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-    } else {
-      admin.initializeApp({ credential: admin.credential.applicationDefault() });
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+      : null;
+
+    // This must match the projectId used by the React Firebase client.
+    // The fallback keeps local setup working even when Application Default
+    // Credentials do not include project metadata.
+    const projectId =
+      process.env.FIREBASE_PROJECT_ID ||
+      process.env.GCLOUD_PROJECT ||
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      serviceAccount?.project_id ||
+      'disaster-firebase-bfa1c';
+
+    if (serviceAccount?.project_id && serviceAccount.project_id !== projectId) {
+      throw new Error(
+        'Firebase service-account project_id does not match FIREBASE_PROJECT_ID.'
+      );
     }
 
+    const credential = serviceAccount
+      ? admin.credential.cert(serviceAccount)
+      : admin.credential.applicationDefault();
+
+    admin.initializeApp({ credential, projectId });
+
     firebaseInitError = null;
-    console.log('Firebase Admin initialized.');
+    console.log('Firebase Admin initialized for project:', projectId);
     return true;
   } catch (error) {
     firebaseInitError = error;
