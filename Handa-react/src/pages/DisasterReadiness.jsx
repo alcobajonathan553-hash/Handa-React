@@ -25,7 +25,7 @@ function scoreLabel(score) {
   return { label: 'Kailangan pang maghanda', tone: 'danger' };
 }
 
-export default function DisasterReadiness({ onSelectGuide }) {
+export default function DisasterReadiness({ onSelectGuide, onAssessmentSaved }) {
   const [records, setRecords] = useState([]);
   const [selectedKey, setSelectedKey] = useState('');
   const [answers, setAnswers] = useState({});
@@ -100,6 +100,7 @@ export default function DisasterReadiness({ onSelectGuide }) {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.message || 'Hindi na-save ang assessment.');
       setNotice(`Na-save ang iyong assessment. Readiness score: ${score}%.`);
+      onAssessmentSaved?.(result);
       setSelectedKey('');
       setAnswers((current) => ({ ...current, [selectedKey]: Array(5).fill('') }));
       await loadAssessments();
