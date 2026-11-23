@@ -375,3 +375,24 @@ button { cursor: pointer; }
  .checklist-task-row { gap:9px;padding:13px 3px; }
  .checklist-task-status { font-size:.54rem;padding:4px 7px; }
 }
+
+
+/* Disaster readiness assessment */
+.readiness-list { display:flex;flex-direction:column;gap:10px; }
+.readiness-panel .readiness-row { display:grid;grid-template-columns:minmax(112px,1.1fr) minmax(70px,1fr) 42px;align-items:center;gap:10px; }
+.readiness-panel .readiness-row > span { display:flex;align-items:center;gap:7px;min-width:0;font-size:.7rem;font-weight:650;color:var(--handa-text); }
+.readiness-panel .readiness-row > span i { color:var(--handa-green); }
+.readiness-panel .readiness-row .progress { height:7px;background:#e9efeb;border-radius:20px; }
+.readiness-panel .readiness-row strong { text-align:right;font-size:.72rem;color:var(--handa-text); }
+.disaster-assessment-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px; }
+.disaster-assessment-card { border:1px solid var(--handa-border);border-radius:16px;background:var(--handa-card);padding:18px;display:flex;flex-direction:column;gap:12px; }
+.disaster-assessment-card .assessment-icon { width:42px;height:42px;border-radius:13px;background:#e9f5ec;color:var(--handa-green);display:grid;place-items:center;font-size:1.2rem; }
+.disaster-assessment-card .progress { height:8px;background:#e9efeb;border-radius:20px; }
+.assessment-question { border:1px solid var(--handa-border);border-radius:13px;padding:16px;background:var(--handa-card); }
+.assessment-answer { display:flex;flex-wrap:wrap;gap:8px;margin-top:12px; }
+.assessment-answer button { border:1px solid var(--handa-border);border-radius:9px;padding:8px 14px;background:transparent;color:var(--handa-text);font-size:.85rem; }
+.assessment-answer button.active { border-color:var(--handa-green);background:#e9f5ec;color:#236d3c;font-weight:700; }
+.dark-mode .disaster-assessment-card,.dark-mode .assessment-question { background:var(--handa-panel); }
+.dark-mode .disaster-assessment-card .assessment-icon,.dark-mode .assessment-answer button.active { background:#294333;color:#b6e1c1; }
+.dark-mode .readiness-panel .readiness-row .progress,.dark-mode .disaster-assessment-card .progress { background:#35443a; }
+@media(max-width:575px) { .readiness-panel .readiness-row { grid-template-columns:minmax(105px,1fr) 60px 38px;gap:7px; } .readiness-panel .readiness-row > span { font-size:.64rem; } }
