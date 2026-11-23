@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { auth } from '../components/firebase.js';
 import DisasterDetail from './DisasterDetail';
+import DisasterReadiness from './DisasterReadiness';
 
 const disasterList = [
   {
@@ -103,7 +104,10 @@ const readiness = [
   { name: 'Baha', value: 60, icon: 'bi-water' },
   { name: 'Lindol', value: 50, icon: 'bi-activity' },
   { name: 'Sunog', value: 70, icon: 'bi-fire' },
+  { name: 'Kawalan ng Kuryente', value: null, icon: 'bi-lightning-charge' },
+  { name: 'Pagsabog ng Bulkan', value: null, icon: 'bi-cloud-haze2' },
   { name: 'Landslide', value: 40, icon: 'bi-triangle-fill' },
+  { name: 'Tsunami', value: null, icon: 'bi-water' },
 ];
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
@@ -654,6 +658,7 @@ export default function Dashboard({ user, onLogout, isOnline }) {
               readySupplies={readySupplies}
               tasks={tasks}
               readiness={readiness}
+              onOpenReadiness={() => navigate('readiness')}
               navigate={navigate}
               onToggleTask={toggleTask}
               onCycleSupply={cycleSupply}
@@ -703,6 +708,13 @@ export default function Dashboard({ user, onLogout, isOnline }) {
             />
           )}
 
+          {activePage === 'readiness' && (
+            <DisasterReadiness onSelectGuide={(id) => {
+              const guide = disasterList.find((item) => item.id === id);
+              if (guide) setSelectedDisaster(guide);
+            }} />
+          )}
+
           {activePage === 'guides' && (
             <GuidesPage
               disasters={filteredDisasters}
@@ -746,6 +758,7 @@ function Sidebar({
     ['evacuation', 'bi-signpost-2-fill', 'Evacuation Plans'],
     ['contacts', 'bi-telephone-fill', 'Emergency Contacts'],
     ['guides', 'bi-book-half', 'Disaster Guides'],
+    ['readiness', 'bi-clipboard2-pulse', 'Disaster Readiness'],
     ['settings', 'bi-gear-fill', 'Settings'],
   ];
 
@@ -835,6 +848,7 @@ function DashboardHome({
   readySupplies,
   tasks,
   readiness,
+  onOpenReadiness,
   navigate,
   onToggleTask,
   onCycleSupply,
@@ -1135,25 +1149,23 @@ function DashboardHome({
             text="Suriin ang antas ng paghahanda sa bawat uri ng sakuna."
           />
 
-          {readiness.map((item) => (
-            <div className="readiness-row" key={item.name}>
-              <span>
-                <i className={`bi ${item.icon}`} />
-                {item.name}
-              </span>
-
-              <div className="progress">
-                <div
-                  className="progress-bar"
-                  style={{
-                    width: `${item.value}%`,
-                  }}
-                />
+          <div className="readiness-list">
+            {readiness.map((item) => (
+              <div className="readiness-row" key={item.name}>
+                <span>
+                  <i className={`bi ${item.icon}`} />
+                  {item.name}
+                </span>
+                <div className="progress">
+                  <div className="progress-bar" style={{ width: `${item.value ?? 0}%` }} />
+                </div>
+                <strong>{item.value === null ? '—' : `${item.value}%`}</strong>
               </div>
-
-              <strong>{item.value}%</strong>
-            </div>
-          ))}
+            ))}
+          </div>
+          <button className="btn btn-handa w-100 mt-3" onClick={onOpenReadiness}>
+            Simulan ang Readiness Assessment <i className="bi bi-arrow-right ms-2" />
+          </button>
         </div>
 
         <div className="panel guide-panel">
